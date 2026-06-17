@@ -96,6 +96,7 @@ export function AuthField({
       <input
         type={type}
         required
+        aria-label={label}
         value={value}
         placeholder={placeholder}
         autoComplete={autoComplete}

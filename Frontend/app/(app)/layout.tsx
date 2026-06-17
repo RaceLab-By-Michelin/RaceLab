@@ -36,6 +36,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
         {/* Bottom navigation */}
         <nav
+          aria-label="Navigation principale"
           className="flex-shrink-0 flex items-center pb-[max(env(safe-area-inset-bottom),1rem)] pt-2 px-1"
           style={{
             borderTop: `1px solid ${navBorder}`,
@@ -110,7 +111,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <nav className="flex flex-col gap-1">
+          <nav aria-label="Navigation principale" className="flex flex-col gap-1">
             {NAV_ITEMS.map((item) => {
               const active = activeScreen === item.id;
               return (
