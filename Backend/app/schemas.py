@@ -27,6 +27,7 @@ class UserOut(BaseModel):
     level_progress: int
     bike: BikeOut
     onboarding_completed: bool = False
+    avatar_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

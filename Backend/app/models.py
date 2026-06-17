@@ -17,6 +17,8 @@ class User(Base):
     bike_model = Column(String, nullable=False, default="")
     bike_year = Column(Integer, nullable=False, default=0)
     bike_color = Column(String, default="#1A3A6B")
+    # URL de la photo de profil Strava (athlete.profile), si le compte est lié.
+    avatar_url = Column(String, nullable=True)
 
     # ── Auth ──────────────────────────────────────────────────────────────
     password_hash = Column(String, nullable=False, default="")

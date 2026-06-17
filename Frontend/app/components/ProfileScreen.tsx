@@ -69,6 +69,7 @@ function ProfileHero({
   const city = user?.city ?? "";
   const levelProgress = user?.level_progress ?? 0;
   const memberSince = user?.member_since ? fmtMemberSince(user.member_since) : "—";
+  const avatarUrl = user?.avatar_url;
 
   const openEdit = () => {
     setForm({ name: user?.name ?? "", username: user?.username ?? "", city: user?.city ?? "" });
@@ -99,21 +100,35 @@ function ProfileHero({
     >
       <div className="p-5">
         <div className="flex items-start gap-4">
-          {/* Avatar générique avec initiales */}
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 select-none"
-            style={{
-              background: COLORS.yellow,
-              border: "2px solid rgba(255,255,255,0.3)",
-              fontSize: "22px",
-              fontWeight: 900,
-              color: COLORS.blueDark,
-              fontFamily: FONTS.title,
-              letterSpacing: "0.04em",
-            }}
-          >
-            {initials(name)}
-          </div>
+          {/* Photo Strava si disponible, sinon avatar générique avec initiales */}
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={name}
+              className="w-16 h-16 rounded-2xl object-cover flex-shrink-0 select-none"
+              style={{ border: "2px solid rgba(255,255,255,0.3)" }}
+              onError={(e) => {
+                // Photo Strava parfois temporairement inaccessible : on retombe
+                // sur les initiales plutôt que de casser le layout.
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 select-none"
+              style={{
+                background: COLORS.yellow,
+                border: "2px solid rgba(255,255,255,0.3)",
+                fontSize: "22px",
+                fontWeight: 900,
+                color: COLORS.blueDark,
+                fontFamily: FONTS.title,
+                letterSpacing: "0.04em",
+              }}
+            >
+              {initials(name)}
+            </div>
+          )}
 
           {/* Infos ou formulaire */}
           <div className="flex-1 min-w-0">

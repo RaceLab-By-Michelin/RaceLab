@@ -3,18 +3,18 @@ services:
   # ── PostgreSQL ───────────────────────────────────────────────────────────────
   db:
     image: postgres:16-alpine
-    container_name: mbt-postgres
+    container_name: racelab-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: mbt
-      POSTGRES_USER: mbt
-      POSTGRES_PASSWORD: mbt_secret
+      POSTGRES_DB: racelab
+      POSTGRES_USER: racelab
+      POSTGRES_PASSWORD: racelab_secret
     ports:
       - "5432:5432"          # exposé pour accès local (DBeaver, psql…)
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mbt -d mbt"]
+      test: ["CMD-SHELL", "pg_isready -U racelab -d racelab"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -22,9 +22,9 @@ services:
   # ── Backend FastAPI ──────────────────────────────────────────────────────────
   backend:
     build:
-      context: ./MBT-Backend
+      context: ./Backend
       dockerfile: Dockerfile
-    container_name: mbt-backend
+    container_name: racelab-backend
     restart: unless-stopped
     ports:
       - "8000:8000"

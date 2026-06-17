@@ -84,6 +84,14 @@ def exchange_strava_code(
     s.strava_athlete_id = athlete.get("id")
     name = f"{athlete.get('firstname', '')} {athlete.get('lastname', '')}".strip()
     s.athlete_name = name or user.name
+
+    # Récupère la photo de profil Strava pour l'utiliser comme avatar du compte
+    # (Strava renvoie un chemin générique "avatar/athlete/large.png" — pas une
+    # vraie URL — quand l'athlète n'a pas de photo).
+    avatar_url = athlete.get("profile") or athlete.get("profile_medium")
+    if avatar_url and avatar_url.startswith("http"):
+        user.avatar_url = avatar_url
+
     db.commit()
     db.refresh(s)
     return s
@@ -95,18 +103,31 @@ def sync_strava_activities(db: Session = Depends(get_db), user: models.User = De
     if not s.connected or not s.access_token:
         raise HTTPException(status_code=400, detail="Strava n'est pas connecté.")
 
+    # Premier sync depuis cette connexion -> on remonte tout l'historique des
+    # sorties vélo. Les fois suivantes, on ne demande à Strava que ce qui est
+    # postérieur au dernier sync (paramètre `after`), donc plus aucune sortie
+    # déjà importée n'est même téléchargée.
+    after_ts = int(s.last_sync.timestamp()) if s.last_sync else None
+
     try:
         access_token = strava_client.ensure_fresh_token(s)
-        activities = strava_client.fetch_recent_activities(access_token)
+        activities = strava_client.fetch_activities(access_token, after=after_ts)
     except httpx.HTTPError:
         db.commit()  # persiste un éventuel refresh de token avant l'erreur
         raise HTTPException(status_code=502, detail="Impossible de récupérer les activités Strava.")
 
+    # Filet de sécurité : une seule requête pour connaître les strava_id déjà
+    # importés, plutôt qu'une requête DB par activité reçue.
+    incoming_ids = {str(a["id"]) for a in activities}
+    already_imported = {
+        row.strava_id
+        for row in db.query(models.Ride.strava_id).filter(models.Ride.strava_id.in_(incoming_ids)).all()
+    }
+
     imported, skipped = 0, 0
     for act in activities:
         strava_id = str(act["id"])
-        exists = db.query(models.Ride).filter(models.Ride.strava_id == strava_id).first()
-        if exists:
+        if strava_id in already_imported:
             skipped += 1
             continue
 

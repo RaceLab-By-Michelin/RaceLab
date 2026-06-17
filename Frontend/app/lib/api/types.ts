@@ -23,6 +23,7 @@ export interface UserOut {
   level_progress: number;
   bike: BikeOut;
   onboarding_completed: boolean;
+  avatar_url?: string | null;
 }
 
 export interface UserPatch {

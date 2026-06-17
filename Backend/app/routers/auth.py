@@ -26,7 +26,21 @@ def _user_to_out(user: models.User) -> schemas.UserOut:
             color=user.bike_color,
         ),
         onboarding_completed=user.onboarding_completed,
+        avatar_url=user.avatar_url,
     )
+
+
+def _strava_avatar_url(athlete: dict) -> str | None:
+    """Extrait l'URL de la photo de profil Strava, si une vraie photo est définie.
+
+    Quand l'athlète n'a pas de photo, Strava renvoie un chemin générique relatif
+    (ex: "avatar/athlete/large.png") au lieu d'une URL absolue — on ne garde
+    que les vraies URLs (http...).
+    """
+    url = athlete.get("profile") or athlete.get("profile_medium")
+    if url and url.startswith("http"):
+        return url
+    return None
 
 
 @router.post("/register", response_model=schemas.AuthOut, status_code=201)
@@ -147,6 +161,7 @@ def auth_with_strava(body: schemas.StravaExchangeIn, db: Session = Depends(get_d
             bike_color="#1A3A6B",
             password_hash="",
             onboarding_completed=False,
+            avatar_url=_strava_avatar_url(athlete),
         )
         db.add(user)
         db.commit()
@@ -165,6 +180,11 @@ def auth_with_strava(body: schemas.StravaExchangeIn, db: Session = Depends(get_d
     strava_conn.strava_athlete_id = athlete_id
     athlete_name = f"{athlete.get('firstname', '')} {athlete.get('lastname', '')}".strip()
     strava_conn.athlete_name = athlete_name or user.name
+    # Toujours resynchroniser la photo de profil avec celle de Strava (compte déjà
+    # existant sans avatar, ou photo changée depuis la dernière connexion).
+    avatar_url = _strava_avatar_url(athlete)
+    if avatar_url:
+        user.avatar_url = avatar_url
     db.commit()
     db.refresh(user)
 

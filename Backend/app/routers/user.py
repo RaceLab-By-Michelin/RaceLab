@@ -27,6 +27,7 @@ def _user_to_out(user: models.User) -> schemas.UserOut:
             color=user.bike_color,
         ),
         onboarding_completed=user.onboarding_completed,
+        avatar_url=user.avatar_url,
     )
 
 

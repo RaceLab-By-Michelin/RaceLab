@@ -89,8 +89,49 @@ def ensure_fresh_token(strava: "models.StravaConnection") -> str:  # noqa: F821 
     return strava.access_token
 
 
+BIKE_TYPES = ("Ride", "VirtualRide", "GravelRide", "MountainBikeRide", "EBikeRide")
+
+# Hard-coupe-feu : même en cas de bug côté Strava (boucle de pagination qui ne
+# se termine jamais), on ne fait jamais plus de N requêtes pour un seul sync.
+MAX_PAGES = 40
+
+
+def fetch_activities(access_token: str, after: int | None = None, per_page: int = 100) -> list[dict]:
+    """Récupère les activités de l'athlète (type vélo uniquement), en paginant.
+
+    - `after=None` (première connexion) : on remonte TOUT l'historique, page
+      par page, jusqu'à ce que Strava renvoie une page vide.
+    - `after=<timestamp epoch>` (syncs suivants) : on demande directement à
+      Strava de ne renvoyer que les activités postérieures à cette date — on
+      ne télécharge donc plus jamais les sorties déjà connues, au lieu de
+      tout récupérer puis de filtrer côté serveur.
+    """
+    all_activities: list[dict] = []
+    page = 1
+    while page <= MAX_PAGES:
+        params: dict[str, int] = {"per_page": per_page, "page": page}
+        if after is not None:
+            params["after"] = after
+        resp = httpx.get(
+            ACTIVITIES_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+            params=params,
+            timeout=15.0,
+        )
+        resp.raise_for_status()
+        batch = resp.json()
+        if not batch:
+            break
+        all_activities.extend(batch)
+        if len(batch) < per_page:
+            break  # dernière page
+        page += 1
+
+    return [a for a in all_activities if a.get("type") in BIKE_TYPES]
+
+
 def fetch_recent_activities(access_token: str, per_page: int = 30) -> list[dict]:
-    """Récupère les activités récentes de l'athlète connecté (type Ride uniquement)."""
+    """Conservé pour compat : les 30 activités les plus récentes, sans pagination."""
     resp = httpx.get(
         ACTIVITIES_URL,
         headers={"Authorization": f"Bearer {access_token}"},
@@ -99,4 +140,4 @@ def fetch_recent_activities(access_token: str, per_page: int = 30) -> list[dict]
     )
     resp.raise_for_status()
     activities = resp.json()
-    return [a for a in activities if a.get("type") in ("Ride", "VirtualRide", "GravelRide", "MountainBikeRide")]
+    return [a for a in activities if a.get("type") in BIKE_TYPES]
