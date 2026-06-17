@@ -1,0 +1,50 @@
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: mbt-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mbt
+      POSTGRES_USER: mbt
+      POSTGRES_PASSWORD: mbt_secret
+    ports:
+      - "5432:5432"          # exposé pour accès local (DBeaver, psql…)
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mbt -d mbt"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Backend FastAPI ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./MBT-Backend
+      dockerfile: Dockerfile
+    container_name: mbt-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://mbt:mbt_secret@db:5432/mbt
+      # Définies dans un fichier .env (non commité) à la racine du projet,
+      # à côté de ce docker-compose.yml — voir .env.example.
+      STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET}
+      STRAVA_REDIRECT_URI: ${STRAVA_REDIRECT_URI:-http://localhost:3000/strava/callback}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  pg_data:
+    driver: local
