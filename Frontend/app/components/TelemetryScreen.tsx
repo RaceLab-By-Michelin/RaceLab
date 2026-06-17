@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { ChevronRight, Bike, Trophy, CheckCircle, AlertCircle } from "lucide-react";
 import { AppHeader } from "./ui/AppHeader";
-import { TireGauge } from "./ui/TireGauge";
+import { Panel, Badge, MeterBar, WearDial } from "./ui/RaceKit";
 import { COLORS, FONTS, getTireAlert } from "@/app/lib/constants";
 import { userApi, tiresApi } from "@/app/lib/api";
 import type { StatsOut, TireSetOut, RecommendationsOut } from "@/app/lib/api";
@@ -96,34 +96,110 @@ function TireCard({ animated, stats }: { animated: boolean; stats: StatsOut | nu
   const rearWear = stats?.rear_wear ?? 0;
 
   return (
-    <div
-      className="mx-5 rounded-2xl p-5 mb-4 glass-panel"
-    >
-      {/* Bike wireframe — roue avant à droite (cx=270), arrière à gauche (cx=70) */}
-      <svg viewBox="0 0 340 110" className="w-full h-16 mb-4 opacity-15" fill="none" stroke={COLORS.black} strokeWidth="5">
-        <circle cx="70" cy="70" r="35" strokeDasharray="4 3" />
-        <circle cx="70" cy="70" r="26" />
-        <circle cx="70" cy="70" r="3.5" fill={COLORS.blue} />
-        <circle cx="270" cy="70" r="35" strokeDasharray="4 3" />
-        <circle cx="270" cy="70" r="26" />
-        <circle cx="270" cy="70" r="3.5" fill={COLORS.blue} />
-        <line x1="70" y1="70" x2="150" y2="30" />
-        <line x1="150" y1="30" x2="230" y2="70" />
-        <line x1="150" y1="30" x2="175" y2="70" />
-        <line x1="175" y1="70" x2="230" y2="70" />
-        <line x1="175" y1="70" x2="270" y2="70" />
-        <line x1="230" y1="35" x2="255" y2="35" />
-        <line x1="230" y1="35" x2="230" y2="70" />
-        <line x1="150" y1="30" x2="160" y2="23" />
-        <line x1="145" y1="23" x2="170" y2="23" />
-      </svg>
-
-      {/* Avant à gauche, Arrière à droite */}
-      <div className="flex justify-around items-center">
-        <TireGauge label="Roue Avant" wearPct={animated ? frontWear : 0} />
-        <div className="h-20 w-px" style={{ background: COLORS.gray10 }} />
-        <TireGauge label="Roue Arrière" wearPct={animated ? rearWear : 0} />
+    <Panel className="mx-5 p-5 mb-4">
+      <div className="mb-3 text-center">
+        <span
+          className="text-[10px] uppercase font-bold"
+          style={{ color: COLORS.gray50, fontFamily: FONTS.mono, letterSpacing: "0.25em" }}
+        >
+          Instrumentation Usure Pneus
+        </span>
       </div>
+
+      {/* Avant à gauche, Arrière à droite — compteurs façon tableau de bord */}
+      <div className="flex justify-around items-center">
+        <WearDial label="Roue Avant" wear={animated ? frontWear : 0} />
+        <div className="h-24 w-px" style={{ background: COLORS.gray10 }} />
+        <WearDial label="Roue Arrière" wear={animated ? rearWear : 0} />
+      </div>
+    </Panel>
+  );
+}
+
+// ─── Comparison matrix — Grip Level / Mechanical Efficiency ──────────────────
+// Ces deux métriques n'existent pas telles quelles côté API : on les dérive de
+// manière réaliste à partir de l'usure réelle (wear_pct), seule donnée
+// télémétrique fiable dont on dispose pour chaque pneu.
+
+function deriveGrip(wear: number): number {
+  return Math.max(0, Math.round(100 - wear * 0.35));
+}
+
+function deriveEfficiency(wear: number): number {
+  return Math.max(0, Math.round(100 - wear * 0.22));
+}
+
+function wearNote(wear: number): string {
+  if (wear >= 75) return "Dégradation du composé détectée";
+  if (wear >= 45) return "Usure modérée — dans la norme";
+  return "État optimal — marge confortable";
+}
+
+function ComparisonMatrix({ stats }: { stats: StatsOut | null }) {
+  const frontWear = stats?.front_wear ?? 0;
+  const rearWear = stats?.rear_wear ?? 0;
+
+  const tireStats = [
+    { position: "Avant", wear: frontWear },
+    { position: "Arrière", wear: rearWear },
+  ].map((t) => ({
+    ...t,
+    grip: deriveGrip(t.wear),
+    efficiency: deriveEfficiency(t.wear),
+    note: wearNote(t.wear),
+  }));
+
+  return (
+    <div className="mx-5 mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {tireStats.map((tire) => {
+        const wearTone = tire.wear >= 75 ? "danger" : tire.wear >= 45 ? "gold" : "success";
+        return (
+          <Panel key={tire.position} className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="text-[13px] font-bold" style={{ color: COLORS.heading, fontFamily: FONTS.title }}>
+                  {tire.position}
+                </h3>
+                <span className="text-[9px] uppercase tracking-wider" style={{ color: COLORS.gray40, fontFamily: FONTS.mono }}>
+                  Pneu
+                </span>
+              </div>
+              <Badge tone={wearTone}>{tire.wear}% Usure</Badge>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-4">
+              <div>
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <span className="text-[11px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+                    Grip Level
+                  </span>
+                  <span className="text-[12px] font-semibold" style={{ color: COLORS.heading, fontFamily: FONTS.mono }}>
+                    {tire.grip}%
+                  </span>
+                </div>
+                <MeterBar value={tire.grip} tone={tire.grip >= 85 ? "success" : "gold"} />
+              </div>
+              <div>
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <span className="text-[11px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+                    Mechanical Efficiency
+                  </span>
+                  <span className="text-[12px] font-semibold" style={{ color: COLORS.heading, fontFamily: FONTS.mono }}>
+                    {tire.efficiency}%
+                  </span>
+                </div>
+                <MeterBar value={tire.efficiency} tone={tire.efficiency >= 95 ? "success" : "gold"} />
+              </div>
+              <p
+                className="pt-3 text-[10px]"
+                style={{ borderTop: `1px solid ${COLORS.gray10}`, color: COLORS.gray50, fontFamily: FONTS.body }}
+              >
+                {tire.note}
+              </p>
+            </div>
+          </Panel>
+        );
+      })}
     </div>
   );
 }
@@ -155,11 +231,11 @@ function TireAlert({ onNavigate, stats }: { onNavigate: (s: string) => void; sta
       icon: <Trophy size={18} color={COLORS.achieved} />, titleColor: COLORS.achieved,
     },
     warning: {
-      border: "#FCD286", iconBg: "#FFFBEB",
-      icon: <AlertCircle size={18} color={COLORS.warning} />, titleColor: "#7C5C0A",
+      border: "rgba(255,184,0,0.35)", iconBg: "rgba(255,184,0,0.12)",
+      icon: <AlertCircle size={18} color={COLORS.warning} />, titleColor: "#FFD79A",
     },
     ok: {
-      border: COLORS.successDark, iconBg: "#F0FDF4",
+      border: COLORS.successDark, iconBg: "rgba(52,211,153,0.12)",
       icon: <CheckCircle size={18} color={COLORS.success} />, titleColor: COLORS.success,
     },
   }[alert.severity];
@@ -168,11 +244,11 @@ function TireAlert({ onNavigate, stats }: { onNavigate: (s: string) => void; sta
     <div
       className="mx-5 rounded-2xl p-4 mb-4"
       style={{
-        background: "rgba(255,255,255,0.72)",
+        background: "rgba(23,26,40,0.88)",
         backdropFilter: "blur(14px) saturate(140%)",
         WebkitBackdropFilter: "blur(14px) saturate(140%)",
         border: `1px solid ${styles.border}`,
-        boxShadow: `0 8px 20px ${styles.border}25, 0 1px 0 rgba(255,255,255,0.6) inset`,
+        boxShadow: `0 8px 20px ${styles.border}25, 0 1px 0 rgba(255,255,255,0.06) inset`,
       }}
     >
       <div className="flex gap-3">
@@ -191,7 +267,7 @@ function TireAlert({ onNavigate, stats }: { onNavigate: (s: string) => void; sta
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span
                 className="px-2 py-0.5 rounded-full text-[11px] font-black"
-                style={{ background: COLORS.yellow, color: COLORS.blueDark, fontFamily: FONTS.mono }}
+                style={{ background: COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.mono }}
               >
                 -{offer.discount_pct}%
               </span>
@@ -220,7 +296,7 @@ function TireAlert({ onNavigate, stats }: { onNavigate: (s: string) => void; sta
         <button
           onClick={() => onNavigate("tires")}
           className="w-full mt-3 flex items-center justify-between px-4 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider transition-all hover:opacity-90 active:scale-[0.98]"
-          style={{ background: COLORS.yellow, color: COLORS.blueDark, fontFamily: FONTS.title, letterSpacing: "0.1em" }}
+          style={{ background: COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.title, letterSpacing: "0.1em" }}
         >
           {offer && offer.discount_pct > 0 ? `Profiter de -${offer.discount_pct}%` : "Voir les pneus recommandés"}
           <ChevronRight size={14} />
@@ -272,6 +348,7 @@ export function TelemetryScreen({ onNavigate }: { onNavigate: (screen: string) =
           <>
             <KmHero stats={stats} tires={tires} />
             <TireCard animated={animated} stats={stats} />
+            <ComparisonMatrix stats={stats} />
             <TireAlert onNavigate={onNavigate} stats={stats} />
           </>
         )}

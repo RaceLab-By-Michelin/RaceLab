@@ -31,7 +31,7 @@ const MICHELIN_EXPERTISE = [
     description:
       "La gamme Power Gravel combine crampons mixtes et carcasse renforcée pour enchainer routes et chemins. Grip exceptionnel sur graviers, terres et rocailles.",
     specs: ["700×35C à 45C", "3–5 bar", "380–460 g"],
-    color: "#16A34A",
+    color: "#34D399",
   },
   {
     emoji: "🏆",
@@ -40,7 +40,7 @@ const MICHELIN_EXPERTISE = [
     description:
       "Utilisés en compétition UCI, les pneus MICHELIN Lithion offrent le minimum de résistance au roulement et une enveloppe ultrafine pour les pistards et triathlètes.",
     specs: ["700×23C", "10–12 bar", "155–180 g"],
-    color: "#7C3AED",
+    color: "#C084FC",
   },
   {
     emoji: "⛰️",
@@ -49,7 +49,7 @@ const MICHELIN_EXPERTISE = [
     description:
       "La gamme Force XC/AM couvre du cross-country au all-mountain. Compound Dual Compound avec flancs souples et centre durci pour vitesse et grip.",
     specs: ["27.5\" / 29\"", "1.5–2.5 bar", "650–900 g"],
-    color: "#B45309",
+    color: "#FFC861",
   },
 ];
 
@@ -163,7 +163,7 @@ function ExpertiseCard({ item }: { item: typeof MICHELIN_EXPERTISE[0] }) {
           {item.emoji}
         </div>
         <div className="flex-1">
-          <div className="text-[13px] font-black uppercase tracking-wide" style={{ color: COLORS.blueDark, fontFamily: FONTS.title }}>
+          <div className="text-[13px] font-black uppercase tracking-wide" style={{ color: COLORS.heading, fontFamily: FONTS.title }}>
             {item.title}
           </div>
           <div className="text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
@@ -279,7 +279,7 @@ export function PartnersScreen({ onNavigate }: { onNavigate: (screen: string) =>
                   className="rounded-xl p-2.5 text-center"
                   style={{ background: COLORS.gray05, border: `1px solid ${COLORS.gray10}` }}
                 >
-                  <div className="font-black text-[15px]" style={{ color: COLORS.blueDark, fontFamily: FONTS.mono }}>
+                  <div className="font-black text-[15px]" style={{ color: COLORS.heading, fontFamily: FONTS.mono }}>
                     {s.value}
                   </div>
                   <div className="text-[9px] uppercase tracking-wide mt-0.5" style={{ color: COLORS.gray50, fontFamily: FONTS.title }}>
@@ -294,7 +294,7 @@ export function PartnersScreen({ onNavigate }: { onNavigate: (screen: string) =>
               className="rounded-xl p-3 mb-3"
               style={{ background: `${COLORS.yellow}15`, border: `1px solid ${COLORS.yellow}40` }}
             >
-              <div className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: COLORS.blueDark, fontFamily: FONTS.title }}>
+              <div className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: COLORS.onGold, fontFamily: FONTS.title }}>
                 🏆 Palmarès récent
               </div>
               {[

@@ -148,6 +148,9 @@ class Event(Base):
     reward = Column(String, nullable=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime, nullable=False)
+    # "public" (visible et rejoignable par tous) ou "private" (nécessite join_code)
+    visibility = Column(String, nullable=False, default="public")
+    join_code = Column(String, nullable=True, unique=True, index=True)
 
 
 class EventParticipant(Base):

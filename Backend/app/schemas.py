@@ -266,6 +266,11 @@ class EventOut(BaseModel):
     reward: Optional[str]
     created_by_user_id: int
     participants: int
+    # "public" (visible et rejoignable par tous) ou "private" (nécessite join_code)
+    visibility: str = "public"
+    # Le code n'est renvoyé qu'au créateur (pour qu'il puisse le partager) —
+    # jamais aux autres utilisateurs listant l'événement.
+    join_code: Optional[str] = None
     # Calculés pour l'utilisateur courant (None si non authentifié / non rejoint)
     joined: bool = False
     progress_value: float = 0
@@ -283,6 +288,12 @@ class EventCreate(BaseModel):
     start_date: datetime
     end_date: datetime
     reward: Optional[str] = None
+    visibility: str = "public"   # "public" | "private"
+
+
+class EventJoin(BaseModel):
+    # Requis uniquement pour rejoindre un événement privé
+    code: Optional[str] = None
 
 
 class EventLeaderboardEntry(BaseModel):

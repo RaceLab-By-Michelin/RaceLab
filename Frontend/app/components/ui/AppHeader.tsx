@@ -52,12 +52,12 @@ export function StravaTag() {
   return (
     <div
       className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-      style={{ background: "#DCFCE7", border: "1px solid #BBF7D0" }}
+      style={{ background: "rgba(52,211,153,0.14)", border: "1px solid #BBF7D0" }}
     >
-      <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse" />
+      <div className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse" />
       <span
         className="text-[10px] font-semibold uppercase tracking-wider"
-        style={{ color: "#16A34A", fontFamily: FONTS.title }}
+        style={{ color: "#34D399", fontFamily: FONTS.title }}
       >
         STRAVA SYNCED
       </span>
@@ -93,12 +93,12 @@ export function AppHeader({ showLiveEvent = false, rightSlot, onBack, onPartners
         {showLiveEvent && (
           <div
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-            style={{ background: "#FEF9C3", border: "1px solid #FDE68A" }}
+            style={{ background: "rgba(255,184,0,0.12)", border: "1px solid #FDE68A" }}
           >
             <div className="w-1.5 h-1.5 rounded-full bg-[#B45309] animate-pulse" />
             <span
               className="text-[10px] font-semibold uppercase tracking-wider"
-              style={{ color: "#B45309", fontFamily: FONTS.title }}
+              style={{ color: "#FFC861", fontFamily: FONTS.title }}
             >
               LIVE EVENT
             </span>

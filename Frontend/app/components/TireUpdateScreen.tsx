@@ -1,12 +1,136 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { ChevronRight, CheckCircle, Filter, Wrench, RefreshCw, RotateCcw, PenLine, AlertTriangle, Gift, ArrowLeft } from "lucide-react";
+import { ChevronRight, CheckCircle, Filter, Wrench, RefreshCw, RotateCcw, PenLine, AlertTriangle, Gift, ArrowLeft, ShieldCheck, Check, CircleDot } from "lucide-react";
 import { AppHeader } from "./ui/AppHeader";
 import { AppFooter } from "./ui/AppFooter";
+import { Panel, SectionLabel, Badge } from "./ui/RaceKit";
 import { COLORS, FONTS } from "@/app/lib/constants";
 import { tiresApi } from "@/app/lib/api";
-import type { TireSetOut, TireOut, TireCatalogOut, WheelPosition, RecommendationsOut } from "@/app/lib/api";
+import type { TireSetOut, TireOut, TireCatalogOut, WheelPosition, RecommendationsOut, TireRecommendationOut } from "@/app/lib/api";
+
+// ─── Recommended Spec panel ──────────────────────────────────────────────────
+// Reprend fidèlement le panneau "Recommended Spec" de la maquette de
+// référence (tires-screen.tsx) : effet spotlight, badge "Engineered Match",
+// grille de deltas et checklist — alimenté par les vraies recommandations API.
+
+function RecommendedSpecPanel({ offer }: { offer: TireRecommendationOut }) {
+  const tire = offer.recommended;
+  if (!tire) return null;
+
+  const gripDelta = Math.round(offer.current_wear_pct * 0.35);
+  const efficiencyDelta = Math.round(offer.current_wear_pct * 0.22);
+  const speedDelta = (offer.current_wear_pct * 0.012).toFixed(1);
+
+  // Sans usure mesurée (pneu neuf ou tout juste monté), aucun gain réel ne
+  // peut être chiffré — on affiche alors une simple recommandation plutôt
+  // que des deltas à 0.
+  const hasDeltas = gripDelta > 0 || efficiencyDelta > 0 || parseFloat(speedDelta) > 0;
+
+  const deltas = [
+    { label: "Grip", value: `+${gripDelta}`, unit: "%" },
+    { label: "Vitesse", value: `+${speedDelta}`, unit: "km/h" },
+    { label: "Efficacité", value: `+${efficiencyDelta}`, unit: "%" },
+  ];
+
+  const specs = [
+    { label: "Modèle", value: tire.name },
+    { label: "Taille", value: tire.sizes[0] ?? "—" },
+    { label: "Type", value: tire.type },
+    { label: "Pression max.", value: tire.max_pressure },
+    { label: "Poids", value: tire.weight },
+  ];
+
+  return (
+    <Panel className="relative mx-5 mb-4 overflow-hidden p-5" borderColor="rgba(255,200,0,0.3)">
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 50% at 20% 0%, rgba(255,200,0,0.16) 0%, rgba(255,200,0,0) 60%)",
+        }}
+      />
+      <div className="relative flex items-center justify-between">
+        <SectionLabel>Spécification Recommandée</SectionLabel>
+        <Badge tone="gold">
+          <ShieldCheck size={11} />
+          {hasDeltas ? "Match Idéal" : "Recommandé"}
+        </Badge>
+      </div>
+
+      <div className="relative mt-3 flex items-center gap-4">
+        <div
+          className="flex size-20 shrink-0 items-center justify-center rounded-2xl"
+          style={{ background: COLORS.gray05, border: `1px solid ${COLORS.gray10}` }}
+        >
+          <CircleDot size={32} color={COLORS.yellow} />
+        </div>
+        <div>
+          <h2 className="text-[18px] font-black leading-tight" style={{ color: COLORS.heading, fontFamily: FONTS.title }}>
+            MICHELIN {tire.name}
+          </h2>
+          <p className="text-[11px] mt-0.5" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+            {offer.wheel === "front" ? "Avant" : "Arrière"} · {tire.sizes[0]} · {tire.type}
+          </p>
+        </div>
+      </div>
+
+      {hasDeltas ? (
+        <div className="relative mt-5 grid grid-cols-3 gap-2.5">
+          {deltas.map((d) => (
+            <div
+              key={d.label}
+              className="rounded-xl p-2.5 text-center"
+              style={{ background: "rgba(255,200,0,0.06)", border: "1px solid rgba(255,200,0,0.18)" }}
+            >
+              <p className="text-[15px] font-black" style={{ color: COLORS.yellow, fontFamily: FONTS.mono }}>
+                {d.value}
+                <span className="text-[10px]">{d.unit}</span>
+              </p>
+              <p className="text-[8px] uppercase tracking-wider mt-0.5" style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}>
+                {d.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="relative mt-4 text-[11px] leading-relaxed" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+          Pneu le mieux adapté à votre profil de roulage actuel.
+        </p>
+      )}
+
+      <dl className="relative mt-4" style={{ borderTop: `1px solid ${COLORS.gray10}` }}>
+        {specs.map((s) => (
+          <div
+            key={s.label}
+            className="flex items-center justify-between py-2.5"
+            style={{ borderBottom: `1px solid ${COLORS.gray10}` }}
+          >
+            <dt className="text-[11px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+              {s.label}
+            </dt>
+            <dd className="flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: COLORS.heading, fontFamily: FONTS.mono }}>
+              <Check size={13} color={COLORS.success} />
+              {s.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      {offer.discount_pct > 0 && (
+        <div
+          className="relative mt-4 flex items-center justify-between rounded-xl px-3.5 py-2.5"
+          style={{ background: COLORS.yellow }}
+        >
+          <span className="text-[11px] font-black" style={{ color: COLORS.onGold, fontFamily: FONTS.title }}>
+            -{offer.discount_pct}% avec {offer.discount_code}
+          </span>
+          <ChevronRight size={14} color={COLORS.onGold} />
+        </div>
+      )}
+    </Panel>
+  );
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -19,10 +143,10 @@ type WheelTarget = "rear" | "front" | "both";
 const TYPE_FILTERS: TireType[] = ["Tous", "Route", "Gravel", "VTT", "Piste"];
 
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  Route: { bg: "#EFF6FF", text: COLORS.blue },
-  Gravel: { bg: "#FEF3C7", text: "#92400E" },
-  VTT: { bg: "#F0FDF4", text: "#166534" },
-  Piste: { bg: "#FDF4FF", text: "#7E22CE" },
+  Route: { bg: "rgba(92,141,246,0.12)", text: COLORS.blue },
+  Gravel: { bg: "rgba(255,184,0,0.12)", text: "#FFC861" },
+  VTT: { bg: "rgba(52,211,153,0.12)", text: "#34D399" },
+  Piste: { bg: "rgba(192,132,252,0.12)", text: "#C084FC" },
 };
 
 const WHEEL_LABELS: Record<WheelTarget, string> = {
@@ -118,7 +242,7 @@ function WheelSelector({
               <div className="flex-1">
                 <div
                   className="text-[12px] font-bold"
-                  style={{ color: active ? COLORS.white : COLORS.blueDark, fontFamily: FONTS.title }}
+                  style={{ color: active ? COLORS.white : COLORS.heading, fontFamily: FONTS.title }}
                 >
                   {desc}
                 </div>
@@ -166,11 +290,11 @@ function CurrentTireCard({
     <div
       className="mx-5 mb-4 rounded-2xl overflow-hidden"
       style={{
-        background: "rgba(255,255,255,0.78)",
+        background: "rgba(23,26,40,0.92)",
         backdropFilter: "blur(14px) saturate(140%)",
         WebkitBackdropFilter: "blur(14px) saturate(140%)",
         border: `2px solid ${COLORS.blue}`,
-        boxShadow: `0 8px 24px rgba(39,80,155,0.15)`,
+        boxShadow: `0 8px 24px rgba(0,0,0,0.4)`,
       }}
     >
       {/* Header */}
@@ -178,7 +302,7 @@ function CurrentTireCard({
         className="px-4 py-3 flex items-center gap-2"
         style={{ background: `linear-gradient(90deg, ${COLORS.blueDark} 0%, ${COLORS.blue} 100%)` }}
       >
-        <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse" />
+        <div className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse" />
         <span className="text-[10px] font-black uppercase tracking-widest text-white" style={{ fontFamily: FONTS.title }}>
           Pneus actuellement montés
         </span>
@@ -192,7 +316,7 @@ function CurrentTireCard({
                 MICHELIN
               </div>
             )}
-            <div className="text-[16px] font-black mb-1" style={{ color: COLORS.blueDark, fontFamily: FONTS.title }}>
+            <div className="text-[16px] font-black mb-1" style={{ color: COLORS.heading, fontFamily: FONTS.title }}>
               {rear.name}
             </div>
             <div className="flex items-center gap-2">
@@ -212,7 +336,7 @@ function CurrentTireCard({
                   {i === 0 ? "Arrière" : "Avant"}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <span className="text-[12px] font-bold truncate block" style={{ color: COLORS.blueDark, fontFamily: FONTS.title }}>
+                  <span className="text-[12px] font-bold truncate block" style={{ color: COLORS.heading, fontFamily: FONTS.title }}>
                     {t.brand === "michelin" ? `MICHELIN ${t.name}` : t.name}
                   </span>
                 </div>
@@ -232,11 +356,11 @@ function CurrentTireCard({
         {hasOffer && (
           <div
             className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl mb-4"
-            style={{ background: "#FFFBEA", border: `1px solid ${COLORS.yellow}` }}
+            style={{ background: "rgba(255,184,0,0.12)", border: `1px solid ${COLORS.yellow}` }}
           >
             <Gift size={14} color={COLORS.blueDark} className="flex-shrink-0" />
             <div className="flex-1">
-              <span className="text-[10px] font-bold" style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}>
+              <span className="text-[10px] font-bold" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
                 <span className="font-black">-{offer!.discount_pct}%</span>
                 {offer!.recommended ? ` sur le ${offer!.recommended.name} — ` : " — "}
                 {offer!.match_reason}
@@ -254,10 +378,10 @@ function CurrentTireCard({
           >
             <RefreshCw size={15} color={COLORS.blueDark} />
             <div className="text-left flex-1">
-              <div className="text-[12px] font-black uppercase tracking-wider" style={{ fontFamily: FONTS.title, color: COLORS.blueDark }}>
+              <div className="text-[12px] font-black uppercase tracking-wider" style={{ fontFamily: FONTS.title, color: COLORS.heading }}>
                 Remplacer par des neufs
               </div>
-              <div className="text-[9px] opacity-70" style={{ fontFamily: FONTS.body, color: COLORS.blueDark }}>
+              <div className="text-[9px] opacity-70" style={{ fontFamily: FONTS.body, color: COLORS.heading }}>
                 Même référence — remet le compteur à zéro
               </div>
             </div>
@@ -326,11 +450,11 @@ function ReplaceSamePanel({ tires, onConfirm, onCancel, saving }: {
     <div
       className="mx-5 mb-4 rounded-2xl overflow-hidden"
       style={{
-        background: "rgba(255,255,255,0.78)",
+        background: "rgba(23,26,40,0.92)",
         backdropFilter: "blur(14px) saturate(140%)",
         WebkitBackdropFilter: "blur(14px) saturate(140%)",
         border: `2px solid ${COLORS.yellow}`,
-        boxShadow: `0 8px 24px rgba(252,229,0,0.22)`,
+        boxShadow: `0 8px 24px rgba(255,200,0,0.12)`,
       }}
     >
       <div className="p-4">
@@ -339,7 +463,7 @@ function ReplaceSamePanel({ tires, onConfirm, onCancel, saving }: {
             <RefreshCw size={18} color={COLORS.blueDark} />
           </div>
           <div>
-            <div className="text-[14px] font-black" style={{ color: COLORS.blueDark, fontFamily: FONTS.title }}>
+            <div className="text-[14px] font-black" style={{ color: COLORS.heading, fontFamily: FONTS.title }}>
               Remplacer par des neufs
             </div>
             <div className="text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
@@ -363,7 +487,7 @@ function ReplaceSamePanel({ tires, onConfirm, onCancel, saving }: {
           <div className="flex gap-6">
             <div>
               <div className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: COLORS.gray50, fontFamily: FONTS.title }}>Usure actuelle</div>
-              <div className="text-[13px] font-bold" style={{ color: COLORS.blueDark, fontFamily: FONTS.mono }}>{wearBefore}</div>
+              <div className="text-[13px] font-bold" style={{ color: COLORS.heading, fontFamily: FONTS.mono }}>{wearBefore}</div>
             </div>
             <div>
               <div className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: COLORS.gray50, fontFamily: FONTS.title }}>Après remplacement</div>
@@ -387,7 +511,7 @@ function ReplaceSamePanel({ tires, onConfirm, onCancel, saving }: {
             onClick={() => onConfirm(wheel)}
             disabled={saving}
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider hover:opacity-90"
-            style={{ background: saving ? COLORS.gray10 : COLORS.yellow, color: saving ? COLORS.gray40 : COLORS.blueDark, fontFamily: FONTS.title }}
+            style={{ background: saving ? COLORS.gray10 : COLORS.yellow, color: saving ? COLORS.gray40 : COLORS.onGold, fontFamily: FONTS.title }}
           >
             {saving ? (
               <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: COLORS.gray40, borderTopColor: "transparent" }} />
@@ -460,7 +584,7 @@ function MichelinPicker({ tires, catalog, recommendations, onConfirm, onCancel, 
             onClick={() => setFilter(f)}
             className="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase whitespace-nowrap transition-all flex-shrink-0"
             style={{
-              background: filter === f ? COLORS.blue : COLORS.white,
+              background: filter === f ? COLORS.blue : COLORS.surface,
               color: filter === f ? COLORS.white : COLORS.gray50,
               border: filter === f ? "none" : `1px solid ${COLORS.gray10}`,
               fontFamily: FONTS.title,
@@ -488,11 +612,11 @@ function MichelinPicker({ tires, catalog, recommendations, onConfirm, onCancel, 
                 key={tire.id}
                 className="rounded-2xl overflow-hidden transition-all"
                 style={{
-                  background: "rgba(255,255,255,0.7)",
+                  background: "rgba(23,26,40,0.85)",
                   backdropFilter: "blur(10px) saturate(140%)",
                   WebkitBackdropFilter: "blur(10px) saturate(140%)",
                   border: sel ? `2px solid ${COLORS.blue}` : `1px solid ${COLORS.glassBorder}`,
-                  boxShadow: sel ? `0 6px 18px rgba(39,80,155,0.18)` : `0 2px 8px rgba(0,32,91,0.05)`,
+                  boxShadow: sel ? `0 6px 18px rgba(92,141,246,0.2)` : `0 2px 8px rgba(0,0,0,0.3)`,
                 }}
               >
                 <button
@@ -511,11 +635,11 @@ function MichelinPicker({ tires, catalog, recommendations, onConfirm, onCancel, 
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[13px] font-black" style={{ color: COLORS.blueDark, fontFamily: FONTS.title }}>{tire.name}</span>
+                      <span className="text-[13px] font-black" style={{ color: COLORS.heading, fontFamily: FONTS.title }}>{tire.name}</span>
                       {discount > 0 && (
                         <span
                           className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase flex items-center gap-0.5"
-                          style={{ background: COLORS.yellow, color: COLORS.blueDark, fontFamily: FONTS.title }}
+                          style={{ background: COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.title }}
                         >
                           <Gift size={9} /> -{discount}%
                         </span>
@@ -524,8 +648,8 @@ function MichelinPicker({ tires, catalog, recommendations, onConfirm, onCancel, 
                         <span
                           className="px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase"
                           style={{
-                            background: isInstalled ? "#DCFCE7" : tire.tag === "Nouveau" ? COLORS.yellow : COLORS.gray05,
-                            color: isInstalled ? "#16A34A" : tire.tag === "Nouveau" ? COLORS.blueDark : COLORS.grayDark,
+                            background: isInstalled ? "rgba(52,211,153,0.14)" : tire.tag === "Nouveau" ? COLORS.yellow : COLORS.gray05,
+                            color: isInstalled ? "#34D399" : tire.tag === "Nouveau" ? COLORS.onGold : COLORS.grayDark,
                             fontFamily: FONTS.title,
                           }}
                         >
@@ -582,7 +706,7 @@ function MichelinPicker({ tires, catalog, recommendations, onConfirm, onCancel, 
           onClick={onCancel}
           disabled={saving}
           className="flex-1 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider"
-          style={{ background: COLORS.white, color: COLORS.grayDark, fontFamily: FONTS.title, border: `1px solid ${COLORS.gray10}` }}
+          style={{ background: COLORS.surface, color: COLORS.grayDark, fontFamily: FONTS.title, border: `1px solid ${COLORS.gray10}` }}
         >
           Annuler
         </button>
@@ -592,7 +716,7 @@ function MichelinPicker({ tires, catalog, recommendations, onConfirm, onCancel, 
           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider transition-all"
           style={{
             background: canInstall ? COLORS.yellow : COLORS.gray10,
-            color: canInstall ? COLORS.blueDark : COLORS.gray40,
+            color: canInstall ? COLORS.onGold : COLORS.gray40,
             fontFamily: FONTS.title,
             cursor: canInstall ? "pointer" : "not-allowed",
           }}
@@ -664,7 +788,7 @@ function OtherBrandPanel({ tires, onConfirm, onCancel, saving }: {
             onChange={(e) => setBrand(e.target.value)}
             placeholder="ex : Continental, Schwalbe, Pirelli…"
             className="w-full px-3 py-2.5 rounded-xl text-[12px] outline-none transition-all"
-            style={{ border: `1px solid ${brand ? COLORS.blue : COLORS.gray10}`, fontFamily: FONTS.body, color: COLORS.blueDark }}
+            style={{ border: `1px solid ${brand ? COLORS.blue : COLORS.gray10}`, fontFamily: FONTS.body, color: COLORS.heading }}
           />
         </div>
 
@@ -678,7 +802,7 @@ function OtherBrandPanel({ tires, onConfirm, onCancel, saving }: {
             onChange={(e) => setModel(e.target.value)}
             placeholder="ex : Grand Prix 5000, Marathon Plus…"
             className="w-full px-3 py-2.5 rounded-xl text-[12px] outline-none transition-all"
-            style={{ border: `1px solid ${model ? COLORS.blue : COLORS.gray10}`, fontFamily: FONTS.body, color: COLORS.blueDark }}
+            style={{ border: `1px solid ${model ? COLORS.blue : COLORS.gray10}`, fontFamily: FONTS.body, color: COLORS.heading }}
           />
         </div>
 
@@ -692,7 +816,7 @@ function OtherBrandPanel({ tires, onConfirm, onCancel, saving }: {
             onChange={(e) => setSize(e.target.value)}
             placeholder="ex : 700x28C, 29x2.2…"
             className="w-full px-3 py-2.5 rounded-xl text-[12px] outline-none transition-all"
-            style={{ border: `1px solid ${size ? COLORS.blue : COLORS.gray10}`, fontFamily: FONTS.mono, color: COLORS.blueDark }}
+            style={{ border: `1px solid ${size ? COLORS.blue : COLORS.gray10}`, fontFamily: FONTS.mono, color: COLORS.heading }}
           />
         </div>
 
@@ -719,10 +843,10 @@ function OtherBrandPanel({ tires, onConfirm, onCancel, saving }: {
           </div>
         </div>
 
-        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl" style={{ background: "#FEF9C3", border: "1px solid #FDE68A" }}>
-          <AlertTriangle size={11} color="#B45309" className="mt-0.5 flex-shrink-0" />
-          <p className="text-[10px] leading-relaxed" style={{ color: "#78350F", fontFamily: FONTS.body }}>
-            Les pneus hors MICHELIN sont suivis dans la catégorie <strong>Autre</strong>. Le suivi d'usure est basé sur des estimations génériques.
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl" style={{ background: "rgba(255,184,0,0.12)", border: "1px solid #FDE68A" }}>
+          <AlertTriangle size={11} color="#FFC861" className="mt-0.5 flex-shrink-0" />
+          <p className="text-[10px] leading-relaxed" style={{ color: "#FFD79A", fontFamily: FONTS.body }}>
+            Les pneus hors MICHELIN sont suivis dans la catégorie <strong>Autre</strong>. Le suivi d&apos;usure est basé sur des estimations génériques.
           </p>
         </div>
 
@@ -740,7 +864,7 @@ function OtherBrandPanel({ tires, onConfirm, onCancel, saving }: {
             disabled={!canSubmit}
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider transition-all"
             style={{
-              background: canSubmit ? COLORS.blueDark : COLORS.gray10,
+              background: canSubmit ? COLORS.blue : COLORS.gray10,
               color: canSubmit ? COLORS.white : COLORS.gray40,
               fontFamily: FONTS.title,
               cursor: canSubmit ? "pointer" : "not-allowed",
@@ -772,7 +896,7 @@ function SuccessBanner({ message, onDismiss }: { message: string; onDismiss: () 
         <div className="text-[12px] font-bold" style={{ color: COLORS.success, fontFamily: FONTS.body }}>
           Mise à jour enregistrée
         </div>
-        <div className="text-[11px] mt-0.5" style={{ color: "#2E7D32", fontFamily: FONTS.body }}>
+        <div className="text-[11px] mt-0.5" style={{ color: "#34D399", fontFamily: FONTS.body }}>
           {message}
         </div>
       </div>
@@ -875,8 +999,6 @@ export function TireUpdateScreen({ onNavigate }: { onNavigate: (screen: string) 
 
   return (
     <div className="flex flex-col h-full" style={{ background: COLORS.bgGradient }}>
-      <AppHeader onPartnersClick={() => onNavigate("partners")} />
-
       <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "none" }}>
         {/* Header */}
         <div className="px-5 pt-5 pb-4">
@@ -921,7 +1043,15 @@ export function TireUpdateScreen({ onNavigate }: { onNavigate: (screen: string) 
             )}
 
             {mode === "idle" && (
-              <CurrentTireCard tires={tires} recommendations={recommendations} onAction={setMode} />
+              <>
+                <CurrentTireCard tires={tires} recommendations={recommendations} onAction={setMode} />
+                {recommendations &&
+                  (() => {
+                    const worstWheel: WheelPosition = tires.front.wear_pct >= tires.rear.wear_pct ? "front" : "rear";
+                    const offer = recommendations[worstWheel];
+                    return offer.recommended ? <RecommendedSpecPanel offer={offer} /> : null;
+                  })()}
+              </>
             )}
 
             {mode === "replace-same" && (

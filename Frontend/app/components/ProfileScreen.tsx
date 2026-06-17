@@ -46,7 +46,7 @@ const inputStyle: React.CSSProperties = {
   border: `1px solid ${COLORS.gray20}`,
   fontSize: "13px",
   fontFamily: FONTS.body,
-  color: COLORS.blueDark,
+  color: COLORS.heading,
   background: COLORS.gray05,
   outline: "none",
 };
@@ -121,7 +121,7 @@ function ProfileHero({
                 border: "2px solid rgba(255,255,255,0.3)",
                 fontSize: "22px",
                 fontWeight: 900,
-                color: COLORS.blueDark,
+                color: COLORS.heading,
                 fontFamily: FONTS.title,
                 letterSpacing: "0.04em",
               }}
@@ -157,7 +157,7 @@ function ProfileHero({
                     onClick={handleSave}
                     disabled={saving}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all"
-                    style={{ background: COLORS.yellow, color: COLORS.blueDark, fontFamily: FONTS.title }}
+                    style={{ background: COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.title }}
                   >
                     {saving ? <Loader size={11} className="animate-spin" /> : <Check size={11} />}
                     Enregistrer
@@ -203,6 +203,25 @@ function ProfileHero({
             )}
           </div>
         </div>
+
+        {!editing && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[9px] uppercase tracking-widest font-bold" style={{ color: "rgba(255,255,255,0.6)", fontFamily: FONTS.title }}>
+                Progression niveau
+              </span>
+              <span className="text-[11px] font-bold" style={{ color: COLORS.yellow, fontFamily: FONTS.mono }}>
+                {levelProgress}%
+              </span>
+            </div>
+            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.12)" }}>
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${Math.max(0, Math.min(100, levelProgress))}%`, background: COLORS.yellow }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -359,7 +378,7 @@ function BikeCard({
           </div>
 
           <div>
-            <div className="text-[15px] font-black" style={{ color: COLORS.blueDark, fontFamily: FONTS.title }}>
+            <div className="text-[15px] font-black" style={{ color: COLORS.heading, fontFamily: FONTS.title }}>
               {bike ? `${bike.brand} ${bike.model}` : "—"}
             </div>
             {bike && (
@@ -378,10 +397,10 @@ function BikeCard({
 
 function StatsGrid({ stats }: { stats: StatsOut | null }) {
   const items = [
-    { label: "Km totaux", value: stats ? Math.round(stats.total_km).toLocaleString("fr-FR") : "—", unit: "km", icon: <Activity size={14} color={COLORS.blue} /> },
-    { label: "Sorties", value: stats ? String(stats.total_rides) : "—", unit: "rides", icon: <Calendar size={14} color={COLORS.blue} /> },
-    { label: "Challenges", value: stats ? String(stats.completed_challenges) : "—", unit: "complétés", icon: <Zap size={14} color={COLORS.blue} /> },
-    { label: "Dénivelé", value: stats ? stats.total_elevation.toLocaleString("fr-FR") : "—", unit: "m D+", icon: <MapPin size={14} color={COLORS.blue} /> },
+    { label: "Km totaux", value: stats ? Math.round(stats.total_km).toLocaleString("fr-FR") : "—", unit: "km", icon: <Activity size={14} color={COLORS.blue} />, accent: false },
+    { label: "Sorties", value: stats ? String(stats.total_rides) : "—", unit: "rides", icon: <Calendar size={14} color={COLORS.blue} />, accent: false },
+    { label: "Challenges", value: stats ? String(stats.completed_challenges) : "—", unit: "complétés", icon: <Zap size={14} color={COLORS.yellow} />, accent: true },
+    { label: "Dénivelé", value: stats ? stats.total_elevation.toLocaleString("fr-FR") : "—", unit: "m D+", icon: <MapPin size={14} color={COLORS.blue} />, accent: false },
   ];
 
   return (
@@ -390,6 +409,7 @@ function StatsGrid({ stats }: { stats: StatsOut | null }) {
         <div
           key={stat.label}
           className="rounded-2xl p-3.5 glass-panel"
+          style={stat.accent ? { border: "1px solid rgba(255,200,0,0.3)" } : undefined}
         >
           <div className="flex items-center gap-1.5 mb-1.5">
             {stat.icon}
@@ -397,7 +417,7 @@ function StatsGrid({ stats }: { stats: StatsOut | null }) {
               {stat.label}
             </span>
           </div>
-          <div className="text-[18px] font-black leading-none" style={{ color: COLORS.blueDark, fontFamily: FONTS.mono }}>
+          <div className="text-[18px] font-black leading-none" style={{ color: stat.accent ? COLORS.yellow : COLORS.heading, fontFamily: FONTS.mono }}>
             {stat.value}
           </div>
           <div className="text-[9px] mt-0.5" style={{ color: COLORS.gray40, fontFamily: FONTS.body }}>
@@ -423,8 +443,8 @@ function RecentRides({ rides }: { rides: RideOut[] }) {
             Dernières sorties
           </span>
         </div>
-        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold" style={{ background: "#DCFCE7", color: "#16A34A", fontFamily: FONTS.title }}>
-          <div className="w-1 h-1 rounded-full bg-[#16A34A]" />
+        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold" style={{ background: "rgba(52,211,153,0.14)", color: "#34D399", fontFamily: FONTS.title }}>
+          <div className="w-1 h-1 rounded-full bg-[#34D399]" />
           Strava
         </div>
       </div>
@@ -444,7 +464,7 @@ function RecentRides({ rides }: { rides: RideOut[] }) {
               <Bike size={14} color={COLORS.blue} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[12px] font-semibold truncate" style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}>
+              <div className="text-[12px] font-semibold truncate" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
                 {ride.name}
               </div>
               <div className="text-[10px] mt-0.5" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
@@ -484,8 +504,6 @@ export function ProfileScreen({ onNavigate }: { onNavigate: (screen: string) => 
 
   return (
     <div className="flex flex-col h-full" style={{ background: COLORS.bgGradient }}>
-      <AppHeader onPartnersClick={() => onNavigate("partners")} />
-
       <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "none" }}>
         <div className="px-5 pt-5 pb-4">
           <div className="flex items-center gap-2 mb-1">

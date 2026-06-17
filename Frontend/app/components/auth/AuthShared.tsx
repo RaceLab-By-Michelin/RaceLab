@@ -56,7 +56,7 @@ export function AuthLayout({
             fontSize: "26px",
             fontWeight: 800,
             letterSpacing: "0.04em",
-            color: COLORS.blueDark,
+            color: COLORS.heading,
           }}
         >
           {title}
@@ -105,9 +105,9 @@ export function AuthField({
         style={{
           border: `1px solid ${COLORS.gray20}`,
           fontFamily: FONTS.body,
-          background: "white",
-          color: COLORS.blueDark,
-          caretColor: COLORS.blueDark,
+          background: COLORS.surface,
+          color: COLORS.heading,
+          caretColor: COLORS.blue,
         }}
       />
     </div>

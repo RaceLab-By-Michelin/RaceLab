@@ -1,3 +1,5 @@
+import random
+import string
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +10,17 @@ from app import models, schemas
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/events", tags=["events"])
+
+
+def _generate_join_code(db: Session) -> str:
+    """Code court (6 caractères, lettres majuscules + chiffres) à partager pour
+    rejoindre un événement privé. Régénéré jusqu'à obtenir une valeur unique."""
+    alphabet = string.ascii_uppercase + string.digits
+    while True:
+        code = "".join(random.choices(alphabet, k=6))
+        exists = db.query(models.Event).filter(models.Event.join_code == code).first()
+        if not exists:
+            return code
 
 
 def _progress_for(db: Session, user_id: int, event: models.Event) -> float:
@@ -51,6 +64,8 @@ def _build_event_out(db: Session, event: models.Event, user: models.User) -> sch
                 progress_value = score
                 break
 
+    is_creator = user.id == event.created_by_user_id
+
     return schemas.EventOut(
         id=event.id,
         name=event.name,
@@ -63,6 +78,10 @@ def _build_event_out(db: Session, event: models.Event, user: models.User) -> sch
         reward=event.reward,
         created_by_user_id=event.created_by_user_id,
         participants=len(participant_ids),
+        visibility=event.visibility,
+        # Le code ne doit être visible que par le créateur, qui peut ensuite
+        # le partager lui-même avec qui il souhaite.
+        join_code=event.join_code if is_creator else None,
         joined=joined,
         progress_value=progress_value,
         rank=rank,
@@ -83,6 +102,8 @@ def create_event(
 ):
     if body.goal_type not in ("distance", "elevation", "rides"):
         raise HTTPException(status_code=400, detail="goal_type invalide")
+    if body.visibility not in ("public", "private"):
+        raise HTTPException(status_code=400, detail="visibility invalide")
     if body.end_date <= body.start_date:
         raise HTTPException(status_code=400, detail="end_date doit être après start_date")
 
@@ -97,6 +118,8 @@ def create_event(
         reward=body.reward,
         created_by_user_id=user.id,
         created_at=datetime.utcnow(),
+        visibility=body.visibility,
+        join_code=_generate_join_code(db) if body.visibility == "private" else None,
     )
     db.add(event)
     db.flush()
@@ -137,7 +160,12 @@ def get_event(event_id: int, db: Session = Depends(get_db), user: models.User = 
 
 
 @router.post("/{event_id}/join", response_model=schemas.EventOut)
-def join_event(event_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+def join_event(
+    event_id: int,
+    body: schemas.EventJoin = schemas.EventJoin(),
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Événement introuvable")
@@ -148,6 +176,9 @@ def join_event(event_id: int, db: Session = Depends(get_db), user: models.User =
         .first()
     )
     if not existing:
+        if event.visibility == "private" and event.created_by_user_id != user.id:
+            if not body.code or body.code.strip().upper() != (event.join_code or "").upper():
+                raise HTTPException(status_code=403, detail="Code d'invitation invalide")
         db.add(models.EventParticipant(event_id=event_id, user_id=user.id, joined_at=datetime.utcnow()))
         db.commit()
 
