@@ -37,7 +37,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
         {/* Bottom navigation */}
         <nav
           aria-label="Navigation principale"
-          className="flex-shrink-0 flex items-center pb-[max(env(safe-area-inset-bottom),1rem)] pt-2 px-1"
+          className="sticky bottom-0 z-50 flex-shrink-0 flex items-center pb-[max(env(safe-area-inset-bottom),1rem)] pt-2 px-1"
           style={{
             borderTop: `1px solid ${navBorder}`,
             background: navBg,
@@ -85,9 +85,10 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       {/* ── Desktop : sidebar + contenu large (≥ lg) ────────────────────── */}
       <div className="hidden lg:flex" style={{ minHeight: "100vh", background: bgOuter }}>
         <aside
-          className="flex-shrink-0 flex flex-col py-6 px-3"
+          className="sticky top-0 z-50 self-start flex-shrink-0 flex flex-col py-6 px-3"
           style={{
             width: "232px",
+            height: "100vh",
             background: navBg,
             borderRight: `1px solid ${navBorder}`,
             backdropFilter: "blur(16px) saturate(140%)",
