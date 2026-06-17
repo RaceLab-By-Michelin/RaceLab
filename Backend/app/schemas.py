@@ -307,6 +307,41 @@ class EventDetailOut(EventOut):
     leaderboard: list[EventLeaderboardEntry] = []
 
 
+# ─── Défi personnalisé ("Pneu pour toi") ──────────────────────────────────
+
+class PersonalChallengeOut(BaseModel):
+    id: int
+    title: str
+    description: str
+    discipline: str
+    target_km: float
+    status: str
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+    adherence_rating: Optional[int] = None
+    comfort_rating: Optional[int] = None
+    speed_rating: Optional[int] = None
+    feedback_comment: Optional[str] = None
+    reward_discount_pct: Optional[int] = None
+    reward_discount_code: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class PersonalChallengeStatusOut(BaseModel):
+    """Le défi courant de l'utilisateur + contexte de progression de récompense."""
+    challenge: PersonalChallengeOut
+    completed_count: int = 0          # défis personnels déjà complétés (feedback rempli)
+    next_reward_pct: int = 10         # réduction qui sera débloquée à la complétion de CE défi
+
+
+class PersonalChallengeFeedbackIn(BaseModel):
+    adherence_rating: int    # 1-5
+    comfort_rating: int      # 1-5
+    speed_rating: int        # 1-5 ("vitesse perçue")
+    comment: Optional[str] = None
+
+
 # ─── Michelin Lab (tirages au sort) ───────────────────────────────────────────
 
 class TireTrialOut(BaseModel):

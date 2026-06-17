@@ -253,6 +253,40 @@ export interface EventDetailOut extends EventOut {
 	leaderboard: EventLeaderboardEntry[];
 }
 
+// ─── Défi personnalisé ("Pneu pour toi") ──────────────────────────────────
+
+export type PersonalChallengeStatus = 'active' | 'pending_feedback' | 'completed';
+
+export interface PersonalChallengeOut {
+	id: number;
+	title: string;
+	description: string;
+	discipline: string;
+	target_km: number;
+	status: PersonalChallengeStatus;
+	created_at: string;
+	completed_at: string | null;
+	adherence_rating: number | null;
+	comfort_rating: number | null;
+	speed_rating: number | null;
+	feedback_comment: string | null;
+	reward_discount_pct: number | null;
+	reward_discount_code: string | null;
+}
+
+export interface PersonalChallengeStatusOut {
+	challenge: PersonalChallengeOut;
+	completed_count: number;
+	next_reward_pct: number;
+}
+
+export interface PersonalChallengeFeedbackIn {
+	adherence_rating: number;
+	comfort_rating: number;
+	speed_rating: number;
+	comment?: string | null;
+}
+
 // ─── Michelin Lab (tirages au sort) ───────────────────────────────────────────
 
 export interface TireTrialOut {

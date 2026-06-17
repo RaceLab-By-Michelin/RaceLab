@@ -15,4 +15,5 @@ export { settingsApi } from './settings';
 export { eventsApi } from './events';
 export { labApi } from './lab';
 export { coachApi } from './coach';
+export { personalChallengesApi } from './personal-challenges';
 export type * from './types';

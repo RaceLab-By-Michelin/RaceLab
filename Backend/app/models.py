@@ -163,6 +163,34 @@ class EventParticipant(Base):
     joined_at = Column(DateTime, nullable=False)
 
 
+class PersonalChallenge(Base):
+    """Défi unique généré pour un utilisateur précis ("Pneu pour toi") — jamais
+    partagé avec d'autres riders. Cycle de vie : active -> pending_feedback
+    (une fois marqué terminé) -> completed (une fois le questionnaire rempli,
+    récompense calculée)."""
+    __tablename__ = "personal_challenges"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    discipline = Column(String, nullable=False)         # "Route" | "Gravel" | "VTT" | "Piste"
+    target_km = Column(Float, nullable=False)
+    status = Column(String, nullable=False, default="active")  # "active" | "pending_feedback" | "completed"
+    created_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+
+    # ── Questionnaire post-défi (ciblé pneus) ───────────────────────────────
+    adherence_rating = Column(Integer, nullable=True)   # 1-5
+    comfort_rating = Column(Integer, nullable=True)      # 1-5
+    speed_rating = Column(Integer, nullable=True)        # 1-5 ("vitesse perçue")
+    feedback_comment = Column(Text, nullable=True)
+
+    # ── Récompense (palier croissant selon le nb de défis complétés) ───────
+    reward_discount_pct = Column(Integer, nullable=True)
+    reward_discount_code = Column(String, nullable=True)
+
+
 class TireTrial(Base):
     """Michelin Lab — tirage au sort pour tester un pneu pas encore commercialisé."""
     __tablename__ = "tire_trials"

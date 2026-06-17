@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine
 from app import models
-from app.routers import user, tires, rides, challenges, settings, auth, events, lab, coach
+from app.routers import user, tires, rides, challenges, settings, auth, events, lab, coach, personal_challenges
 
 models.Base.metadata.create_all(bind=engine)  # fallback si alembic non exécuté
 
@@ -30,6 +30,7 @@ app.include_router(settings.router)
 app.include_router(events.router)
 app.include_router(lab.router)
 app.include_router(coach.router)
+app.include_router(personal_challenges.router)
 
 
 @app.on_event("startup")

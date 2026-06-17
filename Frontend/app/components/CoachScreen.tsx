@@ -2,20 +2,26 @@
 
 import { useState, useEffect } from 'react';
 
-import { Sparkles, AlertTriangle, AlertCircle, Info, ArrowRight } from 'lucide-react';
+import { Sparkles, AlertTriangle, AlertCircle, Info, ArrowRight, TrendingUp, Gauge } from 'lucide-react';
 
-import { coachApi } from '@/app/lib/api';
-import type { CoachTipOut } from '@/app/lib/api';
+import { coachApi, tiresApi, ridesApi, userApi } from '@/app/lib/api';
+import type { CoachTipOut, WearPoint, RideOut, StatsOut } from '@/app/lib/api';
 import { COLORS, FONTS } from '@/app/lib/constants';
 
 import { AppHeader } from './ui/AppHeader';
-import { Panel, Badge, Sparkline, type BadgeTone, type SparkTone } from './ui/RaceKit';
+import { Panel, Badge, SectionLabel, Sparkline, type BadgeTone, type SparkTone } from './ui/RaceKit';
 
 // Reprend le layout "insight-card" de la maquette de référence (coach-screen.tsx) :
 // icône + badge, titre, message, lien CTA, puis métrique chiffrée + Sparkline.
 // L'API ne fournit pas d'historique numérique par conseil : on en dérive un de
 // façon déterministe (seedé sur l'id du conseil) pour la mini-courbe de tendance,
 // purement décorative — le texte, lui, reste 100% piloté par les vraies données.
+//
+// En plus des conseils, l'écran affiche désormais plusieurs graphiques et
+// indicateurs basés sur les vraies données du cycliste (usure, sorties,
+// totaux) pour renforcer la sensation d'un assistant personnel qui suit
+// réellement sa pratique — sans jamais y glisser de proposition de réduction
+// (ce n'est pas l'endroit : les offres restent dans les conseils dédiés).
 
 const SEVERITY_STYLE: Record<
 	CoachTipOut['severity'],
@@ -145,17 +151,170 @@ function TipCard({ tip }: { tip: CoachTipOut }) {
 	);
 }
 
+// ─── Vue d'ensemble (vraies données /users/me/stats) ──────────────────────────
+
+function StatTile({ value, unit, label }: { value: string; unit?: string; label: string }) {
+	return (
+		<div
+			className="flex-1 rounded-xl px-3 py-3"
+			style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${COLORS.glassBorder}` }}
+		>
+			<p className="leading-none font-black" style={{ fontFamily: FONTS.mono, fontSize: 17, color: COLORS.heading }}>
+				{value}
+				{unit && <span style={{ fontSize: 10, color: COLORS.gray40 }}>{unit}</span>}
+			</p>
+			<p
+				className="mt-1.5 text-[8.5px] tracking-wider uppercase"
+				style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}
+			>
+				{label}
+			</p>
+		</div>
+	);
+}
+
+function StatsOverview({ stats }: { stats: StatsOut }) {
+	return (
+		<div className="flex gap-2.5">
+			<StatTile value={stats.total_km.toFixed(0)} unit="km" label="Distance Totale" />
+			<StatTile value={String(stats.total_rides)} label="Sorties" />
+			<StatTile value={stats.total_elevation.toFixed(0)} unit="m" label="Dénivelé Cumulé" />
+			<StatTile value={`${Math.round(stats.adherence_pct)}`} unit="%" label="Adhérence" />
+		</div>
+	);
+}
+
+// ─── Évolution de l'usure (vraies données /tires/wear-history) ────────────────
+
+function WearTrendChart({ points }: { points: WearPoint[] }) {
+	if (points.length < 2) return null;
+	const width = 300;
+	const height = 64;
+	const front = points.map((p) => p.front_wear);
+	const rear = points.map((p) => p.rear_wear);
+	const all = [...front, ...rear];
+	const min = Math.min(...all, 0);
+	const max = Math.max(...all, 1);
+	const range = max - min || 1;
+	const step = width / (points.length - 1);
+
+	const toPath = (values: number[]) =>
+		values
+			.map((v, i) => {
+				const x = i * step;
+				const y = height - ((v - min) / range) * height;
+				return `${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
+			})
+			.join(' ');
+
+	return (
+		<svg viewBox={`0 0 ${width} ${height}`} className="h-16 w-full" preserveAspectRatio="none">
+			<path d={toPath(front)} fill="none" stroke={COLORS.blue} strokeWidth={1.75} />
+			<path d={toPath(rear)} fill="none" stroke={COLORS.success} strokeWidth={1.75} />
+		</svg>
+	);
+}
+
+// ─── Volume hebdomadaire (vraies données /rides) ───────────────────────────────
+
+function isoWeekStart(d: Date): Date {
+	const date = new Date(d);
+	const day = (date.getDay() + 6) % 7; // lundi = 0
+	date.setHours(0, 0, 0, 0);
+	date.setDate(date.getDate() - day);
+	return date;
+}
+
+function formatShortDate(d: Date): string {
+	return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function buildWeeklyVolume(rides: RideOut[]): { key: string; label: string; km: number }[] {
+	const map = new Map<string, number>();
+	for (const r of rides) {
+		const weekStart = isoWeekStart(new Date(r.date));
+		const key = weekStart.toISOString().slice(0, 10);
+		map.set(key, (map.get(key) ?? 0) + r.distance_km);
+	}
+	return Array.from(map.entries())
+		.sort((a, b) => a[0].localeCompare(b[0]))
+		.slice(-8)
+		.map(([key, km]) => ({ key, label: formatShortDate(new Date(key)), km: Math.round(km * 10) / 10 }));
+}
+
+function WeeklyVolumeChart({ data }: { data: { key: string; label: string; km: number }[] }) {
+	if (data.length === 0) return null;
+	const max = Math.max(...data.map((d) => d.km), 1);
+	return (
+		<div className="flex items-end gap-2" style={{ height: 92 }}>
+			{data.map((d, i) => {
+				const isLast = i === data.length - 1;
+				const h = Math.max(4, Math.round((d.km / max) * 100));
+				return (
+					<div key={d.key} className="flex flex-1 flex-col items-center gap-1.5">
+						<span className="text-[8.5px] font-bold" style={{ color: COLORS.gray60, fontFamily: FONTS.mono }}>
+							{d.km}
+						</span>
+						<div className="flex w-full flex-1 items-end">
+							<div
+								className="w-full rounded-md transition-all duration-700"
+								style={{ height: `${h}%`, background: isLast ? COLORS.blue : 'rgba(92,141,246,0.32)' }}
+							/>
+						</div>
+						<span className="text-[7.5px] uppercase" style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}>
+							{d.label}
+						</span>
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+// ─── Vitesse moyenne récente (vraies données /rides) ───────────────────────────
+
+function buildSpeedTrend(rides: RideOut[]): number[] {
+	return [...rides]
+		.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+		.slice(-8)
+		.map((r) => r.avg_speed);
+}
+
 export function CoachScreen() {
 	const [tips, setTips] = useState<CoachTipOut[]>([]);
+	const [stats, setStats] = useState<StatsOut | null>(null);
+	const [wearPoints, setWearPoints] = useState<WearPoint[]>([]);
+	const [wearRates, setWearRates] = useState<{ front: number; rear: number } | null>(null);
+	const [rides, setRides] = useState<RideOut[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		coachApi
-			.getTips()
-			.then((r) => setTips(r.tips))
-			.catch(console.error)
-			.finally(() => setLoading(false));
+		Promise.allSettled([
+			coachApi.getTips(),
+			userApi.getStats(),
+			tiresApi.getWearHistory(30),
+			ridesApi.getRides({ limit: 60, days: 90 }),
+		]).then(([tipsRes, statsRes, wearRes, ridesRes]) => {
+			if (tipsRes.status === 'fulfilled') setTips(tipsRes.value.tips);
+			else console.error(tipsRes.reason);
+
+			if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+			else console.error(statsRes.reason);
+
+			if (wearRes.status === 'fulfilled') {
+				setWearPoints(wearRes.value.points);
+				setWearRates({ front: wearRes.value.avg_front_per_day, rear: wearRes.value.avg_rear_per_day });
+			} else console.error(wearRes.reason);
+
+			if (ridesRes.status === 'fulfilled') setRides(ridesRes.value);
+			else console.error(ridesRes.reason);
+
+			setLoading(false);
+		});
 	}, []);
+
+	const weeklyVolume = buildWeeklyVolume(rides);
+	const speedTrend = buildSpeedTrend(rides);
 
 	return (
 		<div className="flex h-full flex-col" style={{ background: COLORS.bgGradient }}>
@@ -196,6 +355,82 @@ export function CoachScreen() {
 					</div>
 				) : (
 					<div className="pt-2">
+						{stats && (
+							<Panel className="mx-5 mb-4 p-4">
+								<SectionLabel>Vue d&apos;ensemble</SectionLabel>
+								<div className="mt-3">
+									<StatsOverview stats={stats} />
+								</div>
+							</Panel>
+						)}
+
+						{wearPoints.length >= 2 && (
+							<Panel className="mx-5 mb-4 p-4">
+								<div className="flex items-center justify-between">
+									<SectionLabel>Évolution de l&apos;usure (30j)</SectionLabel>
+									<TrendingUp size={13} color={COLORS.gray50} />
+								</div>
+								<div className="mt-3">
+									<WearTrendChart points={wearPoints} />
+								</div>
+								<div className="mt-2 flex items-center gap-4">
+									<div className="flex items-center gap-1.5">
+										<span className="h-2 w-2 rounded-full" style={{ background: COLORS.blue }} />
+										<span className="text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+											Avant {wearRates ? `· ${wearRates.front.toFixed(2)}%/j` : ''}
+										</span>
+									</div>
+									<div className="flex items-center gap-1.5">
+										<span className="h-2 w-2 rounded-full" style={{ background: COLORS.success }} />
+										<span className="text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+											Arrière {wearRates ? `· ${wearRates.rear.toFixed(2)}%/j` : ''}
+										</span>
+									</div>
+								</div>
+							</Panel>
+						)}
+
+						{weeklyVolume.length >= 2 && (
+							<Panel className="mx-5 mb-4 p-4">
+								<SectionLabel>Volume hebdomadaire</SectionLabel>
+								<div className="mt-3">
+									<WeeklyVolumeChart data={weeklyVolume} />
+								</div>
+							</Panel>
+						)}
+
+						{speedTrend.length >= 2 && (
+							<Panel className="mx-5 mb-4 p-4">
+								<div className="flex items-center justify-between">
+									<SectionLabel>Tendance vitesse moyenne</SectionLabel>
+									<Gauge size={13} color={COLORS.gray50} />
+								</div>
+								<div className="mt-3 flex items-end gap-4">
+									<div>
+										<p
+											className="leading-none font-black"
+											style={{ fontFamily: FONTS.mono, fontSize: 20, color: COLORS.heading }}
+										>
+											{speedTrend[speedTrend.length - 1].toFixed(1)}
+											<span style={{ fontSize: 11, color: COLORS.gray40 }}> km/h</span>
+										</p>
+										<p
+											className="mt-1 text-[8.5px] tracking-wider uppercase"
+											style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}
+										>
+											Dernière Sortie
+										</p>
+									</div>
+									<Sparkline data={speedTrend} tone="success" className="h-10 flex-1" />
+								</div>
+							</Panel>
+						)}
+
+						{tips.length > 0 && (
+							<div className="mx-5 mb-2 mt-1">
+								<SectionLabel>Recommandations du coach</SectionLabel>
+							</div>
+						)}
 						{tips.map((tip) => (
 							<TipCard key={tip.id} tip={tip} />
 						))}

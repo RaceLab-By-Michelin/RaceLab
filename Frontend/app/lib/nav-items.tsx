@@ -4,8 +4,6 @@ import type { Screen } from './types';
 
 import { COLORS } from './constants';
 
-// "Partenaires" n'est pas dans la navigation principale — accessible via le
-// raccourci en haut à droite de l'en-tête (AppHeader.onPartnersClick).
 // Événements + Michelin Lab sont des onglets internes à l'écran "challenges"
 // (pas d'item de nav dédié, pour ne pas surcharger la barre mobile).
 export const NAV_ITEMS: { id: Screen; icon: (active: boolean) => React.ReactNode; label: string }[] = [
