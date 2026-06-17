@@ -11,6 +11,7 @@ export const eventsApi = {
   /** POST /events — crée un événement (le créateur le rejoint automatiquement) */
   create: (body: EventCreateIn): Promise<EventOut> => api.post<EventOut>("/events", body).then((r) => r.data),
 
-  /** POST /events/{id}/join — rejoindre un événement existant */
-  join: (id: number): Promise<EventOut> => api.post<EventOut>(`/events/${id}/join`).then((r) => r.data),
+  /** POST /events/{id}/join — rejoindre un événement existant (code requis si privé) */
+  join: (id: number, code?: string): Promise<EventOut> =>
+    api.post<EventOut>(`/events/${id}/join`, { code: code || null }).then((r) => r.data),
 };

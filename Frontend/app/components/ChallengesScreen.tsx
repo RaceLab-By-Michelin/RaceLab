@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { Trophy, Star, Clock, Flame, Medal, ChevronRight, Plus, Calendar, Target, Gift, Dice5, Sparkle, Check } from "lucide-react";
+import { Trophy, Star, Clock, Flame, Medal, ChevronRight, Plus, Calendar, Target, Gift, Dice5, Sparkle, Check, Users, ArrowRight, Lock, Globe, Copy } from "lucide-react";
 import { AppHeader } from "./ui/AppHeader";
 import { AppFooter } from "./ui/AppFooter";
+import { Badge } from "./ui/RaceKit";
 import { COLORS, FONTS } from "@/app/lib/constants";
 import { challengesApi, eventsApi, labApi } from "@/app/lib/api";
-import type { ChallengeOut, EventOut, EventGoalType, TireTrialOut } from "@/app/lib/api";
+import type { ChallengeOut, EventOut, EventGoalType, EventVisibility, TireTrialOut } from "@/app/lib/api";
 
 // ─── Concurrents fixes (non stockés en backend) ─────────────────────────────
 // "Vous" n'a pas de rang fixe : sa position est recalculée dynamiquement en
@@ -52,6 +53,9 @@ function buildLeaderboard(userKm: number): LeaderboardEntry[] {
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
+// Reprend la carte "Events" de la maquette de référence (events-screen.tsx) :
+// image 16:10 avec dégradé + badges en haut, infos en bas de l'image, puis
+// boîte "Sponsorisé par" + boîte "Recommandation Télémétrie" avec CTA.
 function ActiveChallengeBanner({ challenge }: { challenge: ChallengeOut | null }) {
   const progressKm = challenge?.progress_km ?? 0;
   const targetKm = challenge?.target_km ?? 100;
@@ -59,10 +63,8 @@ function ActiveChallengeBanner({ challenge }: { challenge: ChallengeOut | null }
   const title = challenge?.name ?? "24H DU MANS — SCUDERIA FERRARI EDITION";
 
   return (
-    <div
-      className="mx-5 mt-4 mb-4 rounded-2xl overflow-hidden glass-panel"
-    >
-      <div className="relative h-36">
+    <div className="mx-5 mt-4 mb-4 rounded-2xl overflow-hidden glass-panel">
+      <div className="relative aspect-[3/1] overflow-hidden">
         <img
           src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=200&fit=crop&auto=format"
           alt="24h du Mans racing event"
@@ -70,66 +72,84 @@ function ActiveChallengeBanner({ challenge }: { challenge: ChallengeOut | null }
         />
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,32,91,0.80) 100%)" }}
+          style={{ background: "linear-gradient(180deg, rgba(11,13,23,0.05) 0%, rgba(11,13,23,0.92) 100%)" }}
         />
-        <div
-          className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-          style={{ background: "rgba(183,28,28,0.92)", backdropFilter: "blur(8px)" }}
-        >
-          <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-          <span
-            className="text-[9px] font-black text-white uppercase tracking-wider"
-            style={{ fontFamily: FONTS.title }}
-          >
-            EN DIRECT
-          </span>
-        </div>
-        <div className="absolute bottom-3 left-4 right-4">
+
+        <div className="absolute inset-x-0 top-0 flex items-center justify-between p-2.5">
           <div
-            className="text-[10px] uppercase tracking-widest mb-1 font-bold"
-            style={{ color: COLORS.yellow, fontFamily: FONTS.title }}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full backdrop-blur-md"
+            style={{ background: "rgba(183,28,28,0.85)" }}
           >
-            Challenge Partenaire
+            <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            <span className="text-[8px] font-black text-white uppercase tracking-wider" style={{ fontFamily: FONTS.title }}>
+              En Direct
+            </span>
           </div>
-          <h2
-            className="text-white leading-tight"
-            style={{ fontFamily: FONTS.title, fontSize: "18px", fontWeight: 800 }}
-          >
+          <Badge tone="gold">Partenaire</Badge>
+        </div>
+
+        <div className="absolute inset-x-0 bottom-0 p-3">
+          <h2 className="text-white leading-tight" style={{ fontFamily: FONTS.title, fontSize: "14px", fontWeight: 800 }}>
             {title.toUpperCase()}
           </h2>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+            <span className="flex items-center gap-1 text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+              <Users size={10} />
+              {challenge?.participants ?? 0} participants
+            </span>
+            <span className="flex items-center gap-1 text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}>
+              <Clock size={10} />
+              {challenge ? new Date(challenge.end_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "—"}
+            </span>
+          </div>
         </div>
       </div>
 
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-2.5 p-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <KmStat value={progressKm} label="km parcourus" />
             <span style={{ color: COLORS.gray20 }}>/</span>
             <KmStat value={targetKm} label="objectif km" />
           </div>
-          {challenge && (
-            <div className="flex items-center gap-1">
-              <Clock size={10} color={COLORS.gray40} />
-              <span className="text-[10px]" style={{ color: COLORS.gray40, fontFamily: FONTS.mono }}>
-                {new Date(challenge.end_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-              </span>
-            </div>
-          )}
         </div>
 
-        <div className="w-full h-2 rounded-full overflow-hidden mb-1.5" style={{ background: COLORS.gray10 }}>
-          <div
-            className="h-full rounded-full transition-all duration-1000"
-            style={{ width: `${progressPct}%`, background: COLORS.yellow }}
-          />
+        <div>
+          <div className="w-full h-1.5 rounded-full overflow-hidden mb-1" style={{ background: COLORS.gray10 }}>
+            <div
+              className="h-full rounded-full transition-all duration-1000"
+              style={{ width: `${progressPct}%`, background: COLORS.yellow }}
+            />
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-[9px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+              {Math.round(progressPct)}% complété
+            </span>
+            <span className="text-[9px] font-semibold" style={{ color: COLORS.blue, fontFamily: FONTS.body }}>
+              {(targetKm - progressKm).toFixed(1)} km restants
+            </span>
+          </div>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
-            {Math.round(progressPct)}% complété
-          </span>
-          <span className="text-[10px] font-semibold" style={{ color: COLORS.blue, fontFamily: FONTS.body }}>
-            {(targetKm - progressKm).toFixed(1)} km restants
-          </span>
+
+        <div
+          className="flex items-center justify-between rounded-xl px-3 py-2"
+          style={{ background: "rgba(255,200,0,0.06)", border: "1px solid rgba(255,200,0,0.2)" }}
+        >
+          <div>
+            <p className="text-[8px] uppercase tracking-wider" style={{ color: COLORS.gray40, fontFamily: FONTS.mono }}>
+              Recommandation Télémétrie — Sponsorisé par Alltricks
+            </p>
+            <p className="text-[11px] font-semibold" style={{ color: COLORS.yellow, fontFamily: FONTS.body }}>
+              Top 10 : paire de pneus Michelin offerte
+            </p>
+          </div>
+          <button
+            className="inline-flex items-center gap-1 text-[10px] font-bold flex-shrink-0"
+            style={{ color: COLORS.yellow, fontFamily: FONTS.title }}
+          >
+            Voir
+            <ArrowRight size={11} />
+          </button>
         </div>
       </div>
     </div>
@@ -248,7 +268,7 @@ function Leaderboard({ activeChallenge }: { activeChallenge: ChallengeOut | null
           <Star size={9} color={COLORS.blueDark} fill={COLORS.blueDark} />
           <span
             className="text-[9px] font-bold uppercase"
-            style={{ color: COLORS.blueDark, fontFamily: FONTS.title }}
+            style={{ color: COLORS.heading, fontFamily: FONTS.title }}
           >
             TOP 10 : Pneus Offerts
           </span>
@@ -273,11 +293,11 @@ function Leaderboard({ activeChallenge }: { activeChallenge: ChallengeOut | null
       {/* Reward note */}
       <div
         className="mx-3 mb-3 mt-2 px-3 py-2.5 rounded-xl"
-        style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}
+        style={{ background: "rgba(255,184,0,0.12)", border: "1px solid #FDE68A" }}
       >
         <div className="flex items-center gap-2">
-          <Star size={11} color="#B45309" fill="#B45309" />
-          <p className="text-[11px]" style={{ color: "#78350F", fontFamily: FONTS.body }}>
+          <Star size={11} color="#FFC861" fill="#FFC861" />
+          <p className="text-[11px]" style={{ color: "#FFD79A", fontFamily: FONTS.body }}>
             <span className="font-bold">Top 10 :</span> Paire de pneus MICHELIN offerte — expédiée par{" "}
             <span className="font-semibold">Alltricks</span>
           </p>
@@ -305,7 +325,7 @@ function BadgesWall({ challenges }: { challenges: ChallengeOut[] }) {
         </span>
         <div
           className="ml-auto px-2 py-0.5 rounded-full text-[9px] font-bold"
-          style={{ background: COLORS.yellow, color: COLORS.blueDark, fontFamily: FONTS.title }}
+          style={{ background: COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.title }}
         >
           {challenges.length} challenges
         </div>
@@ -342,14 +362,14 @@ function PastChallengeRow({ challenge, isLast }: { challenge: ChallengeOut; isLa
       className="px-4 py-3 flex items-center gap-3"
       style={{
         borderBottom: isLast ? "none" : `1px solid ${COLORS.gray05}`,
-        background: podium ? "#FFFBEB" : "transparent",
+        background: podium ? "rgba(255,184,0,0.12)" : "transparent",
       }}
     >
       <span className="text-xl w-7 text-center flex-shrink-0">{challenge.badge_emoji ?? "🏅"}</span>
       <div className="flex-1 min-w-0">
         <div
           className="text-[12px] font-bold truncate"
-          style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}
+          style={{ color: COLORS.heading, fontFamily: FONTS.body }}
         >
           {challenge.name}
         </div>
@@ -363,7 +383,7 @@ function PastChallengeRow({ challenge, isLast }: { challenge: ChallengeOut; isLa
           </span>
         </div>
         {challenge.reward && (
-          <div className="mt-1 text-[9px] font-semibold" style={{ color: "#B45309" }}>
+          <div className="mt-1 text-[9px] font-semibold" style={{ color: "#FFC861" }}>
             🎁 {challenge.reward}
           </div>
         )}
@@ -467,9 +487,9 @@ function TabBar({ active, onChange }: { active: ChallengesTab; onChange: (t: Cha
           className="flex-1 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all"
           style={{
             fontFamily: FONTS.title,
-            background: active === t.id ? COLORS.white : "transparent",
-            color: active === t.id ? COLORS.blue : COLORS.gray50,
-            boxShadow: active === t.id ? "0 1px 3px rgba(0,32,91,0.12)" : "none",
+            background: active === t.id ? COLORS.surfaceStrong : "transparent",
+            color: active === t.id ? COLORS.blueLight : COLORS.gray50,
+            boxShadow: active === t.id ? "0 1px 3px rgba(0,0,0,0.3)" : "none",
           }}
         >
           {t.label}
@@ -487,16 +507,52 @@ const GOAL_TYPE_LABELS: Record<EventGoalType, string> = {
   rides: "sorties",
 };
 
-function EventCard({ event, onJoin }: { event: EventOut; onJoin: (id: number) => void }) {
+function EventCard({ event, onJoin }: { event: EventOut; onJoin: (id: number, code?: string) => Promise<void> }) {
   const progressPct = event.goal_value > 0 ? Math.min(100, (event.progress_value / event.goal_value) * 100) : 0;
   const ended = new Date(event.end_date) < new Date();
+  const isPrivate = event.visibility === "private";
+  // Le code n'est présent que pour le créateur (jamais renvoyé aux autres) —
+  // sa présence sert ici simplement à savoir si on doit l'afficher.
+  const isCreatorView = !!event.join_code;
+
+  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [joining, setJoining] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function handleJoinClick() {
+    if (isPrivate && !isCreatorView && !showCodeInput) {
+      setShowCodeInput(true);
+      return;
+    }
+    setError(null);
+    setJoining(true);
+    try {
+      await onJoin(event.id, code.trim() || undefined);
+    } catch {
+      setError("Code d'invitation invalide.");
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  function handleCopyCode() {
+    if (!event.join_code) return;
+    navigator.clipboard?.writeText(event.join_code).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   return (
     <div className="mx-5 mb-4 rounded-2xl overflow-hidden glass-panel p-4">
       <div className="flex items-start justify-between gap-2 mb-2">
-        <h3 className="text-[14px] font-bold leading-tight" style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}>
-          {event.name}
-        </h3>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {isPrivate ? <Lock size={11} color={COLORS.gray40} /> : <Globe size={11} color={COLORS.gray40} />}
+          <h3 className="text-[14px] font-bold leading-tight truncate" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
+            {event.name}
+          </h3>
+        </div>
         {event.joined && (
           <span
             className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase flex-shrink-0"
@@ -510,6 +566,26 @@ function EventCard({ event, onJoin }: { event: EventOut; onJoin: (id: number) =>
       <p className="text-[11px] mb-3 leading-snug" style={{ color: COLORS.grayDark, fontFamily: FONTS.body }}>
         {event.description}
       </p>
+
+      {isCreatorView && (
+        <button
+          onClick={handleCopyCode}
+          className="flex items-center justify-between w-full gap-2 mb-3 px-3 py-2 rounded-xl"
+          style={{ background: "rgba(255,200,0,0.06)", border: "1px solid rgba(255,200,0,0.2)" }}
+        >
+          <div className="text-left">
+            <p className="text-[8px] uppercase tracking-wider" style={{ color: COLORS.gray40, fontFamily: FONTS.mono }}>
+              Code d&apos;invitation
+            </p>
+            <p className="text-[13px] font-black tracking-widest" style={{ color: COLORS.yellow, fontFamily: FONTS.mono }}>
+              {event.join_code}
+            </p>
+          </div>
+          <span className="flex items-center gap-1 text-[10px] font-bold" style={{ color: COLORS.yellow, fontFamily: FONTS.title }}>
+            <Copy size={11} /> {copied ? "Copié" : "Copier"}
+          </span>
+        </button>
+      )}
 
       <div className="flex items-center gap-3 mb-3 flex-wrap">
         <div className="flex items-center gap-1">
@@ -537,8 +613,8 @@ function EventCard({ event, onJoin }: { event: EventOut; onJoin: (id: number) =>
 
       {event.reward && (
         <div className="flex items-center gap-1.5 mb-3">
-          <Gift size={11} color="#B45309" />
-          <span className="text-[10px] font-semibold" style={{ color: "#78350F", fontFamily: FONTS.body }}>
+          <Gift size={11} color="#FFC861" />
+          <span className="text-[10px] font-semibold" style={{ color: "#FFD79A", fontFamily: FONTS.body }}>
             {event.reward}
           </span>
         </div>
@@ -563,14 +639,35 @@ function EventCard({ event, onJoin }: { event: EventOut; onJoin: (id: number) =>
           </div>
         </>
       ) : (
-        <button
-          onClick={() => onJoin(event.id)}
-          disabled={ended}
-          className="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-opacity disabled:opacity-40"
-          style={{ background: COLORS.blue, color: COLORS.white, fontFamily: FONTS.title }}
-        >
-          {ended ? "Terminé" : "Rejoindre"}
-        </button>
+        <>
+          {showCodeInput && (
+            <input
+              autoFocus
+              placeholder="Code d'invitation (6 caractères)"
+              value={code}
+              onChange={(e) => {
+                setCode(e.target.value.toUpperCase());
+                setError(null);
+              }}
+              maxLength={6}
+              className="w-full mb-2 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold tracking-widest outline-none"
+              style={{ fontFamily: FONTS.mono, background: COLORS.surface, border: `1px solid ${error ? COLORS.danger : COLORS.gray10}` }}
+            />
+          )}
+          {error && (
+            <p className="text-[10px] mb-2 text-center" style={{ color: COLORS.danger, fontFamily: FONTS.body }}>
+              {error}
+            </p>
+          )}
+          <button
+            onClick={handleJoinClick}
+            disabled={ended || joining || (showCodeInput && code.trim().length === 0)}
+            className="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-opacity disabled:opacity-40"
+            style={{ background: COLORS.blue, color: COLORS.white, fontFamily: FONTS.title }}
+          >
+            {ended ? "Terminé" : joining ? "…" : showCodeInput ? "Valider le code" : isPrivate ? "Entrer un code" : "Rejoindre"}
+          </button>
+        </>
       )}
     </div>
   );
@@ -589,11 +686,12 @@ function CreateEventForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     return d.toISOString().slice(0, 10);
   });
   const [reward, setReward] = useState("");
+  const [visibility, setVisibility] = useState<EventVisibility>("public");
   const [submitting, setSubmitting] = useState(false);
 
   const inputStyle = {
     fontFamily: FONTS.body,
-    background: COLORS.white,
+    background: COLORS.surface,
     border: `1px solid ${COLORS.gray10}`,
   };
 
@@ -610,6 +708,7 @@ function CreateEventForm({ onCreated, onCancel }: { onCreated: () => void; onCan
         start_date: new Date(startDate).toISOString(),
         end_date: new Date(endDate).toISOString(),
         reward: reward || null,
+        visibility,
       });
       onCreated();
     } catch (e) {
@@ -691,6 +790,34 @@ function CreateEventForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           className="px-3 py-2.5 rounded-xl text-[12px] outline-none"
           style={inputStyle}
         />
+
+        <div>
+          <p className="text-[9px] uppercase tracking-wider mb-1.5" style={{ color: COLORS.gray50, fontFamily: FONTS.title }}>
+            Visibilité
+          </p>
+          <div className="flex gap-2">
+            {(["public", "private"] as EventVisibility[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setVisibility(v)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all"
+                style={{
+                  fontFamily: FONTS.title,
+                  background: visibility === v ? COLORS.yellow : COLORS.gray05,
+                  color: visibility === v ? COLORS.onGold : COLORS.gray50,
+                }}
+              >
+                {v === "public" ? <Globe size={12} /> : <Lock size={12} />}
+                {v === "public" ? "Public" : "Privé"}
+              </button>
+            ))}
+          </div>
+          {visibility === "private" && (
+            <p className="text-[10px] mt-1.5 leading-relaxed" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+              Un code d&apos;invitation à 6 caractères sera généré — partagez-le avec les personnes que vous voulez inviter.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 mt-3">
@@ -731,13 +858,11 @@ function EventsTab() {
     refresh();
   }, []);
 
-  async function handleJoin(id: number) {
-    try {
-      const updated = await eventsApi.join(id);
-      setEvents((prev) => prev.map((e) => (e.id === id ? updated : e)));
-    } catch (e) {
-      console.error(e);
-    }
+  async function handleJoin(id: number, code?: string) {
+    // Pas de try/catch ici : un code invalide (403) doit remonter jusqu'à
+    // l'EventCard pour afficher l'erreur inline, plutôt qu'être avalé ici.
+    const updated = await eventsApi.join(id, code);
+    setEvents((prev) => prev.map((e) => (e.id === id ? updated : e)));
   }
 
   if (loading) {
@@ -754,7 +879,7 @@ function EventsTab() {
         <button
           onClick={() => setShowForm((v) => !v)}
           className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-opacity"
-          style={{ background: showForm ? COLORS.gray05 : COLORS.yellow, color: COLORS.blueDark, fontFamily: FONTS.title }}
+          style={{ background: showForm ? COLORS.gray05 : COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.title }}
         >
           <Plus size={13} /> {showForm ? "Fermer" : "Créer un événement"}
         </button>
@@ -795,7 +920,7 @@ function TrialCard({ trial, onEnter }: { trial: TireTrialOut; onEnter: (id: numb
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
           <Dice5 size={14} color={COLORS.blue} />
-          <h3 className="text-[14px] font-bold leading-tight" style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}>
+          <h3 className="text-[14px] font-bold leading-tight" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
             {trial.tire_name}
           </h3>
         </div>
@@ -833,8 +958,8 @@ function TrialCard({ trial, onEnter }: { trial: TireTrialOut; onEnter: (id: numb
 
       {trial.preorder_discount_pct && (
         <div className="flex items-center gap-1.5 mb-3">
-          <Gift size={11} color="#B45309" />
-          <span className="text-[10px] font-semibold" style={{ color: "#78350F", fontFamily: FONTS.body }}>
+          <Gift size={11} color="#FFC861" />
+          <span className="text-[10px] font-semibold" style={{ color: "#FFD79A", fontFamily: FONTS.body }}>
             -{trial.preorder_discount_pct}% en pré-commande pour les gagnants
           </span>
         </div>
@@ -899,7 +1024,7 @@ function LabTab() {
 
   return (
     <>
-      <div className="mx-5 mb-4 flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: "#EFF4FB", border: `1px solid ${COLORS.glassBorder}` }}>
+      <div className="mx-5 mb-4 flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: "rgba(92,141,246,0.12)", border: `1px solid ${COLORS.glassBorder}` }}>
         <Sparkle size={13} color={COLORS.blue} />
         <p className="text-[10px] leading-snug" style={{ color: COLORS.blue, fontFamily: FONTS.body }}>
           Testez en exclusivité des prototypes Michelin pas encore commercialisés.
@@ -939,7 +1064,7 @@ export function ChallengesScreen({ onNavigate }: { onNavigate: (screen: string) 
 
   return (
     <div className="flex flex-col h-full" style={{ background: COLORS.bgGradient }}>
-      <AppHeader showLiveEvent onPartnersClick={() => onNavigate("partners")} />
+      <AppHeader showLiveEvent />
 
       <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "none" }}>
         {/* Section title */}

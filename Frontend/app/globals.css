@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0b0d17;
+  --foreground: #f4f6fc;
 }
 
 @theme inline {
@@ -12,11 +12,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
@@ -25,35 +22,39 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ─── Liquid glass performance UI ─────────────────────────────────────────── */
+/* ─── Michelin RaceLab — satin glass performance UI (dark) ──────────────── */
 
 .glass-panel {
-  background: rgba(255, 255, 255, 0.72);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 40%),
+    #171a28;
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid rgba(0, 32, 91, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   box-shadow:
-    0 8px 24px rgba(0, 32, 91, 0.07),
-    0 1px 0 rgba(255, 255, 255, 0.6) inset;
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 20px 40px -24px rgba(0, 0, 0, 0.8);
 }
 
 .glass-panel-strong {
-  background: rgba(255, 255, 255, 0.55);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 45%),
+    #1c2032;
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid rgba(0, 32, 91, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   box-shadow:
-    0 12px 32px rgba(0, 32, 91, 0.1),
-    0 1px 0 rgba(255, 255, 255, 0.7) inset;
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 24px 48px -24px rgba(0, 0, 0, 0.85);
 }
 
 .glass-bar {
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(11, 13, 23, 0.82);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   backdrop-filter: blur(16px) saturate(140%);
-  border-color: rgba(0, 32, 91, 0.08);
+  border-color: rgba(255, 255, 255, 0.09);
 }
 
 .glass-glow-active {
-  filter: drop-shadow(0 0 6px rgba(255, 199, 0, 0.45));
+  filter: drop-shadow(0 0 6px rgba(255, 200, 0, 0.5));
 }

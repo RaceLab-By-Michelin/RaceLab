@@ -18,9 +18,9 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const activeScreen = screenFromPath(pathname);
 
-  const bgOuter = COLORS.gray10;
+  const bgOuter = "#0B0D17";
   const bgPhone = COLORS.bgGradient;
-  const navBg = "rgba(255,255,255,0.78)";
+  const navBg = "rgba(20,23,36,0.85)";
   const navBorder = COLORS.glassBorder;
 
   return (
@@ -126,7 +126,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                     className="text-[12px] uppercase tracking-widest"
                     style={{
                       fontFamily: FONTS.title,
-                      color: active ? COLORS.blueDark : COLORS.gray50,
+                      color: active ? COLORS.onGold : COLORS.gray50,
                       fontWeight: active ? 700 : 500,
                     }}
                   >

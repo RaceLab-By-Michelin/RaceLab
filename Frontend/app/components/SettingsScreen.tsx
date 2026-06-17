@@ -44,7 +44,7 @@ function SettingRow({
 }) {
   return (
     <div
-      className="flex items-center px-4 py-3.5 gap-3 bg-white"
+      className="flex items-center px-4 py-3.5 gap-3"
       style={{ borderBottom: `1px solid ${COLORS.gray05}` }}
     >
       <div
@@ -56,7 +56,7 @@ function SettingRow({
       <div className="flex-1 min-w-0">
         <div
           className="text-[13px] font-semibold"
-          style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}
+          style={{ color: COLORS.heading, fontFamily: FONTS.body }}
         >
           {label}
         </div>
@@ -137,8 +137,8 @@ function StravaSection({ onNavigate }: { onNavigate: (screen: string) => void })
         right={
           connected ? (
             <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse" />
-              <span className="text-[10px] font-semibold" style={{ color: "#16A34A", fontFamily: FONTS.title }}>
+              <div className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse" />
+              <span className="text-[10px] font-semibold" style={{ color: "#34D399", fontFamily: FONTS.title }}>
                 Connecté
               </span>
             </div>
@@ -156,7 +156,7 @@ function StravaSection({ onNavigate }: { onNavigate: (screen: string) => void })
             disabled={acting}
             className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all"
             style={{
-              background: "#EFF4FB",
+              background: "rgba(92,141,246,0.12)",
               color: COLORS.blue,
               fontFamily: FONTS.title,
               border: `1px solid ${COLORS.glassBorder}`,
@@ -173,7 +173,7 @@ function StravaSection({ onNavigate }: { onNavigate: (screen: string) => void })
             className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all"
             style={{
               background: COLORS.gray05,
-              color: COLORS.blueDark,
+              color: COLORS.heading,
               fontFamily: FONTS.title,
               border: `1px solid ${COLORS.glassBorder}`,
             }}
@@ -189,7 +189,7 @@ function StravaSection({ onNavigate }: { onNavigate: (screen: string) => void })
             className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all"
             style={{
               background: COLORS.yellow,
-              color: COLORS.blueDark,
+              color: COLORS.onGold,
               fontFamily: FONTS.title,
               border: "1px solid transparent",
               opacity: acting ? 0.6 : 1,
@@ -255,8 +255,6 @@ function LogoutSection() {
 export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
   return (
     <div className="flex flex-col h-full" style={{ background: COLORS.bgGradient }}>
-      <AppHeader onPartnersClick={() => onNavigate("partners")} />
-
       <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "none" }}>
         {/* Header */}
         <div className="px-5 pt-5 pb-4">

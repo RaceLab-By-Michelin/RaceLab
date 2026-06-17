@@ -9,7 +9,7 @@ export function AppFooter() {
       style={{ borderTop: `1px solid ${COLORS.glassBorder}` }}
     >
       <div className="flex items-center justify-between">
-        <span className="text-[10px]" style={{ color: COLORS.gray20, fontFamily: FONTS.body }}>
+        <span className="text-[10px]" style={{ color: COLORS.gray40, fontFamily: FONTS.body }}>
           © 2026 MICHELIN Group. Tous droits réservés.
         </span>
         <div className="flex items-center gap-3">

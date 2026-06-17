@@ -724,6 +724,24 @@ def seed(db: Session) -> None:
 
     print("🌱 Seeding...")
 
+    try:
+        _seed_fresh(db)
+    except Exception:
+        # Toute erreur en cours de seed laisse la session dans un état
+        # incohérent (ex: User inséré mais reste annulé) — on rollback pour
+        # repartir d'une base propre plutôt que de laisser une transaction
+        # à moitié appliquée derrière nous.
+        db.rollback()
+        raise
+
+    seed_events_and_trials(db)
+
+    print("✅ Seed terminé.")
+
+
+def _seed_fresh(db: Session) -> None:
+    """Insère le jeu de données complet sur une base vierge (0 utilisateur)."""
+
     # User
     db.add(
         models.User(
@@ -743,6 +761,10 @@ def seed(db: Session) -> None:
             onboarding_completed=True,
         )
     )
+    # Flush immédiat : garantit que la ligne users(id=1) existe bien en base
+    # avant tout insert qui la référence (notification_settings, tires, ...),
+    # quel que soit l'ordre de tri des dépendances décidé par SQLAlchemy.
+    db.flush()
 
     # Tires (front + rear)
     db.add(
@@ -815,10 +837,6 @@ def seed(db: Session) -> None:
     db.add(models.StravaConnection(id=1, user_id=1, connected=False, athlete_name=None, last_sync=None))
 
     db.commit()
-
-    seed_events_and_trials(db)
-
-    print("✅ Seed terminé.")
 
 
 if __name__ == "__main__":

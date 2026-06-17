@@ -29,7 +29,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://mbt:mbt_secret@db:5432/mbt
+      DATABASE_URL: postgresql://racelab:racelab_secret@db:5432/racelab
       # Définies dans un fichier .env (non commité) à la racine du projet,
       # à côté de ce docker-compose.yml — voir .env.example.
       STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID}

@@ -55,7 +55,7 @@ function InviteButton({ firstname }: { firstname: string }) {
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex-shrink-0"
       style={{
         background: copied ? COLORS.successLight : COLORS.yellow,
-        color: copied ? COLORS.success : COLORS.blueDark,
+        color: copied ? COLORS.success : COLORS.onGold,
         fontFamily: FONTS.title,
       }}
     >
@@ -91,7 +91,7 @@ function ClubMembersView({ club, onBack }: { club: StravaClubOut; onBack: () => 
       <div className="px-5 pb-3">
         <h2
           className="text-[17px] font-bold leading-tight"
-          style={{ color: COLORS.blueDark, fontFamily: FONTS.title }}
+          style={{ color: COLORS.heading, fontFamily: FONTS.title }}
         >
           {club.name}
         </h2>
@@ -132,14 +132,14 @@ function ClubMembersView({ club, onBack }: { club: StravaClubOut; onBack: () => 
             >
               <div
                 className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-[12px] font-bold"
-                style={{ background: COLORS.gray05, color: COLORS.blueDark, fontFamily: FONTS.title }}
+                style={{ background: COLORS.gray05, color: COLORS.heading, fontFamily: FONTS.title }}
               >
                 {(m.firstname?.[0] ?? "?").toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <div
                   className="text-[13px] font-semibold truncate"
-                  style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}
+                  style={{ color: COLORS.heading, fontFamily: FONTS.body }}
                 >
                   {m.firstname} {m.lastname}
                   {m.is_self && (
@@ -201,7 +201,7 @@ function ClubsListView({ clubs, onSelect }: { clubs: StravaClubOut[]; onSelect: 
         >
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-            style={{ background: "#FFF1E9" }}
+            style={{ background: "rgba(252,76,2,0.14)" }}
           >
             {club.profile_medium ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -213,7 +213,7 @@ function ClubsListView({ clubs, onSelect }: { clubs: StravaClubOut[]; onSelect: 
           <div className="flex-1 min-w-0">
             <div
               className="text-[13px] font-semibold truncate"
-              style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}
+              style={{ color: COLORS.heading, fontFamily: FONTS.body }}
             >
               {club.name}
             </div>

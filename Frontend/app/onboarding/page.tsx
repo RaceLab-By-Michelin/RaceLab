@@ -33,7 +33,8 @@ function toOnboardingTire(t: TireFormState): OnboardingTireIn {
 const inputStyle: React.CSSProperties = {
   border: `1px solid ${COLORS.gray20}`,
   fontFamily: FONTS.body,
-  background: "white",
+  background: COLORS.surface,
+  color: COLORS.heading,
 };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -215,7 +216,7 @@ export default function OnboardingPage() {
           </div>
           <h1
             className="uppercase leading-none"
-            style={{ fontFamily: FONTS.title, fontSize: "24px", fontWeight: 800, letterSpacing: "0.04em", color: COLORS.blueDark }}
+            style={{ fontFamily: FONTS.title, fontSize: "24px", fontWeight: 800, letterSpacing: "0.04em", color: COLORS.heading }}
           >
             Configurez votre profil
           </h1>

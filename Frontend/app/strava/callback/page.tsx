@@ -94,19 +94,19 @@ function StravaCallbackContent() {
       {status === "loading" && <Loader size={28} color={COLORS.blue} className="animate-spin" />}
       {status === "error" && <XCircle size={28} color={COLORS.danger} />}
       {status === "loading" && (
-        <p className="text-[13px] text-center max-w-xs" style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}>
+        <p className="text-[13px] text-center max-w-xs" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
           Connexion à Strava en cours…
         </p>
       )}
       {status === "error" && (
         <>
-          <p className="text-[13px] text-center max-w-xs" style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}>
+          <p className="text-[13px] text-center max-w-xs" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
             {message}
           </p>
           <button
             onClick={() => router.push(backHref)}
             className="px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider"
-            style={{ background: COLORS.yellow, color: COLORS.blueDark, fontFamily: FONTS.title }}
+            style={{ background: COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.title }}
           >
             {isLoginFlow ? "Retour à la connexion" : "Retour aux paramètres"}
           </button>

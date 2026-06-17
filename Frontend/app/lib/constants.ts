@@ -2,63 +2,69 @@
 // Source: Charte Digitale Michelin, Mars 2024
 
 export const COLORS = {
+  // ─── Luxury dark palette (Michelin RaceLab — obsidian / midnight blue / satin gold) ───
   // Primary palette
-  blue: "#27509B",        // Bleu Michelin officiel
-  blueDark: "#00205B",    // Bleu Foncé Michelin (fonds immersifs)
-  blueDark02: "#3A61A6",
-  blueLight: "#6182BB",
-  yellow: "#FCE500",      // Jaune Michelin officiel
+  blue: "#5C8DF6",        // Michelin blue, brightened for legibility on dark surfaces
+  blueDark: "#0F1B3D",    // Deep navy — used for backgrounds/gradients, NOT text-on-dark
+  blueDark02: "#1B2C5C",
+  blueLight: "#8FB0FF",
+  yellow: "#FFC800",      // Satin gold-yellow accent (refined Michelin yellow)
 
-  // Neutrals
+  // Neutrals — flipped for dark mode. "white"/"black" keep literal meaning (still
+  // used as text-on-color), gray05/10/20 are now subtle light-on-dark fills,
+  // gray40/50/grayDark are light/muted text tones for the dark background.
   white: "#FFFFFF",
   black: "#000000",
-  gray05: "#F2F2F2",
-  gray10: "#E5E5E5",
-  gray20: "#CCCCCC",
-  gray40: "#999999",
-  gray50: "#7F7F7F",
-  gray60: "#666666",
-  grayDark: "#53565A",    // Gris Responsable
+  gray05: "rgba(255,255,255,0.05)",
+  gray10: "rgba(255,255,255,0.09)",
+  gray20: "#3C4156",
+  gray40: "#8B92AC",
+  gray50: "#A6ADC6",
+  gray60: "#C2C7DC",
+  grayDark: "#E7E9F2",    // now a light/muted body-text tone for dark satin cards
+
+  // New semantic tokens needed for the dark refactor
+  heading: "#F4F6FC",        // primary heading/title text on dark cards (replaces blueDark-as-text)
+  onGold: "#161B2E",         // dark text used ON TOP of the satin gold accent (chips, CTA)
+  surface: "#171A28",        // elevated dark satin surface (replaces white-as-active-bg)
+  surfaceStrong: "#1F2333",  // more prominent elevated surface
 
   // Semantic
-  success: "#469f4a",
-  successLight: "#E8F5E5",
-  successDark: "#92C18F",
-  succesMedim: "#4CAF50",
-  warning: "#F9A825",
-  warningLight: "#FDECC0",
-  danger: "#B71C1C",
-  dangerLight: "#F4CEC2",
-  dangerDark: "#DD8880",
+  success: "#34D399",
+  successLight: "rgba(52,211,153,0.14)",
+  successDark: "#1F9C71",
+  succesMedim: "#4ADE80",
+  warning: "#FFB020",
+  warningLight: "rgba(255,176,32,0.14)",
+  danger: "#F2655C",
+  dangerLight: "rgba(242,101,92,0.14)",
+  dangerDark: "#C2453D",
 
   // "Pas encore roulé" — incite à prendre le vélo (teinte énergique, distincte
   // du vert "bon état" pour ne pas laisser croire que les pneus sont juste neufs)
-  start: "#27509B",
-  startLight: "#E0F7FA",
+  start: "#5C8DF6",
+  startLight: "rgba(92,141,246,0.14)",
 
   // Forte usure (>80%) — cadré comme un objectif atteint, pas une alerte.
-  // Vert plus foncé/profond que "success" pour marquer l'accomplissement.
-  achieved: "#15803D",
-  achievedLight: "#DCFCE7",
+  achieved: "#34D399",
+  achievedLight: "rgba(52,211,153,0.14)",
 
-  // Glass / performance-cockpit background (early-morning ride: asphalt + sky).
-  // Layered: soft yellow "leader jersey" glow (top-left) + blue brand glow
-  // (bottom-right) + a faint diagonal road-line texture, over a cool
-  // white→blue-grey base. Kept light and crisp — no haze, no dark tones.
+  // Performance-cockpit background — ultra-premium dark mode: deep obsidian and
+  // midnight blue, a muted gold spotlight, and a faint carbon/road-line texture.
+  // No neon glow — dark, layered, high-contrast typography on top.
   bgGradient:
-    "radial-gradient(circle at 12% 0%, rgba(252,229,0,0.16) 0%, rgba(252,229,0,0) 38%), " +
-    "radial-gradient(circle at 100% 18%, rgba(39,80,155,0.14) 0%, rgba(39,80,155,0) 42%), " +
-    "radial-gradient(circle at 100% 100%, rgba(0,32,91,0.10) 0%, rgba(0,32,91,0) 48%), " +
-    "repeating-linear-gradient(125deg, rgba(0,32,91,0.035) 0px, rgba(0,32,91,0.035) 2px, transparent 2px, transparent 46px), " +
-    "linear-gradient(165deg, #FFFFFF 0%, #F3F7FC 32%, #E9EFF7 62%, #EEF1F5 100%)",
-  glassBorder: "rgba(0,32,91,0.08)",
-  glowYellow: "rgba(252,229,0,0.45)",
+    "radial-gradient(ellipse 70% 50% at 15% -10%, rgba(92,141,246,0.20) 0%, rgba(92,141,246,0) 55%), " +
+    "radial-gradient(ellipse 60% 45% at 90% 0%, rgba(255,200,0,0.07) 0%, rgba(255,200,0,0) 60%), " +
+    "repeating-linear-gradient(125deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 2px, transparent 2px, transparent 46px), " +
+    "linear-gradient(180deg, #121420 0%, #0E101B 45%, #0B0D17 100%)",
+  glassBorder: "rgba(255,255,255,0.10)",
+  glowYellow: "rgba(255,200,0,0.35)",
 } as const;
 
-// Typography: Michelin Unit Titling (proprietary) → fallback to Barlow Condensed
-// Body: Noto Sans (Google Fonts)
+// Typography: condensed/technical titles → Space Grotesk for luxury-watch metrics.
+// Body: Noto Sans (Google Fonts). Tabular numerals via JetBrains Mono.
 export const FONTS = {
-  title: "'Michelin', 'Barlow Condensed', 'Arial Narrow', sans-serif",
+  title: "'Space Grotesk', 'Barlow Condensed', 'Arial Narrow', sans-serif",
   body: "'Noto Sans', 'Barlow', Arial, sans-serif",
   mono: "'JetBrains Mono', 'Courier New', monospace",
 } as const;

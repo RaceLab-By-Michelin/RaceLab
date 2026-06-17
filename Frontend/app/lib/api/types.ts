@@ -208,6 +208,8 @@ export interface ChallengeOut {
 
 export type EventGoalType = "distance" | "elevation" | "rides";
 
+export type EventVisibility = "public" | "private";
+
 export interface EventOut {
   id: number;
   name: string;
@@ -220,6 +222,9 @@ export interface EventOut {
   reward: string | null;
   created_by_user_id: number;
   participants: number;
+  visibility: EventVisibility;
+  // Renvoyé uniquement au créateur de l'événement
+  join_code: string | null;
   joined: boolean;
   progress_value: number;
   rank: number | null;
@@ -234,6 +239,7 @@ export interface EventCreateIn {
   start_date: string;
   end_date: string;
   reward?: string | null;
+  visibility?: EventVisibility;
 }
 
 export interface EventLeaderboardEntry {
