@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal, engine
+from app.database import SessionLocal, engine, sync_sequences
 from app import models
 from app.auth import hash_password
 
@@ -719,6 +719,10 @@ def seed(db: Session) -> None:
     # qu'une seule fois (base vierge).
     if db.query(models.User).count() > 0:
         seed_events_and_trials(db)
+        # Au cas où une exécution précédente du seed (avant ce fix) ait laissé
+        # les séquences Postgres désynchronisées des id explicites insérés
+        # ci-dessous — voir sync_sequences().
+        sync_sequences(db)
         print("⚡ Base déjà seedée — catalogue + events/trials synchronisés, reste skip.")
         return
 
@@ -735,6 +739,11 @@ def seed(db: Session) -> None:
         raise
 
     seed_events_and_trials(db)
+    # _seed_fresh insère User/Tire/NotificationSettings/StravaConnection avec
+    # des id explicites (données démo déterministes) : il faut réaligner les
+    # séquences Postgres dessus avant que d'autres inserts auto (signup,
+    # Strava, settings...) ne réutilisent ces mêmes id.
+    sync_sequences(db)
 
     print("✅ Seed terminé.")
 
