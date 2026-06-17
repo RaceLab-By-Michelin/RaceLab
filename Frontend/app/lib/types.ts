@@ -1,4 +1,12 @@
-export type Screen = "telemetry" | "challenges" | "profile" | "tires" | "settings" | "partners" | "coach";
+export type Screen =
+  | "telemetry"
+  | "challenges"
+  | "profile"
+  | "tires"
+  | "settings"
+  | "partners"
+  | "coach"
+  | "strava-clubs";
 
 export interface NavItem {
   id: Screen;

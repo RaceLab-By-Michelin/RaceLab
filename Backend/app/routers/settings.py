@@ -52,6 +52,37 @@ def _get_connection(user_id: int, db: Session) -> models.StravaConnection:
     return s
 
 
+def _split_name(full_name: str | None) -> tuple[str, str]:
+    """Découpe un "athlete_name" stocké (ex: "Alexandre Cassan") en (prénom, nom)."""
+    parts = (full_name or "").strip().split(" ", 1)
+    first = parts[0] if parts else ""
+    last = parts[1] if len(parts) > 1 else ""
+    return first, last
+
+
+def _is_same_athlete(member_firstname: str, member_lastname: str, ref_first: str, ref_last: str) -> bool:
+    """Compare un membre de club Strava à un athlète connu (soi-même ou un
+    autre utilisateur de l'app) sans s'appuyer sur l'id Strava.
+
+    L'endpoint "club members" de Strava n'expose en pratique pas l'id de
+    l'athlète, et tronque souvent son nom de famille à une initiale (ex:
+    "Alexandre C."). On compare donc le prénom exactement, et le nom de
+    famille seulement par préfixe (les deux sens, au cas où c'est l'un ou
+    l'autre des deux noms qui est tronqué).
+    """
+    if not member_firstname or not ref_first:
+        return False
+    if member_firstname.strip().lower() != ref_first.strip().lower():
+        return False
+    member_last = (member_lastname or "").strip().rstrip(".").lower()
+    ref_last_clean = (ref_last or "").strip().lower()
+    if not member_last or not ref_last_clean:
+        # Pas de nom de famille exploitable d'un côté ou de l'autre : le
+        # prénom seul fait foi (suffisant dans le contexte d'un club Strava).
+        return True
+    return ref_last_clean.startswith(member_last) or member_last.startswith(ref_last_clean)
+
+
 @router.get("/strava", response_model=schemas.StravaOut)
 def get_strava(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     return _get_connection(user.id, db)
@@ -153,6 +184,95 @@ def sync_strava_activities(db: Session = Depends(get_db), user: models.User = De
     s.last_sync = datetime.utcnow()
     db.commit()
     return schemas.StravaSyncOut(imported=imported, skipped=skipped)
+
+
+@router.get("/strava/clubs", response_model=list[schemas.StravaClubOut])
+def get_strava_clubs(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    s = _get_connection(user.id, db)
+    if not s.connected or not s.access_token:
+        raise HTTPException(status_code=400, detail="Strava n'est pas connecté.")
+
+    try:
+        access_token = strava_client.ensure_fresh_token(s)
+        clubs = strava_client.fetch_athlete_clubs(access_token)
+    except httpx.HTTPError:
+        db.commit()  # persiste un éventuel refresh de token avant l'erreur
+        raise HTTPException(status_code=502, detail="Impossible de récupérer les clubs Strava.")
+
+    db.commit()
+    return [
+        schemas.StravaClubOut(
+            id=c["id"],
+            name=c.get("name") or "",
+            profile_medium=c.get("profile_medium"),
+            cover_photo=c.get("cover_photo"),
+            sport_type=c.get("sport_type"),
+            city=c.get("city"),
+            member_count=c.get("member_count"),
+        )
+        for c in clubs
+    ]
+
+
+@router.get("/strava/clubs/{club_id}/members", response_model=list[schemas.StravaClubMemberOut])
+def get_strava_club_members(
+    club_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)
+):
+    s = _get_connection(user.id, db)
+    if not s.connected or not s.access_token:
+        raise HTTPException(status_code=400, detail="Strava n'est pas connecté.")
+
+    try:
+        access_token = strava_client.ensure_fresh_token(s)
+        members = strava_client.fetch_club_members(access_token, club_id)
+    except httpx.HTTPError:
+        db.commit()
+        raise HTTPException(status_code=502, detail="Impossible de récupérer les membres du club Strava.")
+
+    db.commit()
+
+    # Une seule requête pour récupérer les athlètes déjà connus de l'app.
+    rows = (
+        db.query(models.StravaConnection.strava_athlete_id, models.StravaConnection.athlete_name)
+        .filter(models.StravaConnection.connected.is_(True))
+        .all()
+    )
+    app_athlete_ids = {row.strava_athlete_id for row in rows if row.strava_athlete_id is not None}
+    app_athlete_names = [row.athlete_name for row in rows if row.athlete_name]
+    own_first, own_last = _split_name(s.athlete_name)
+
+    result = []
+    for m in members:
+        mid = m.get("id")
+        firstname = m.get("firstname") or ""
+        lastname = m.get("lastname") or ""
+
+        if mid is not None:
+            # L'id Strava est disponible (rare en pratique, mais le cas le
+            # plus fiable quand on l'a) : on matche dessus.
+            is_self = mid == s.strava_athlete_id
+            is_app_user = mid in app_athlete_ids
+        else:
+            # Cas réel le plus fréquent : l'API "club members" de Strava ne
+            # renvoie pas l'id de l'athlète. On retombe sur une comparaison
+            # par prénom + nom de famille (potentiellement tronqué).
+            is_self = _is_same_athlete(firstname, lastname, own_first, own_last)
+            is_app_user = is_self or any(
+                _is_same_athlete(firstname, lastname, *_split_name(name)) for name in app_athlete_names
+            )
+
+        result.append(
+            schemas.StravaClubMemberOut(
+                strava_id=mid,
+                firstname=firstname,
+                lastname=lastname,
+                profile_medium=m.get("profile_medium"),
+                city=m.get("city"),
+                is_app_user=is_app_user,
+                is_self=is_self,
+            )
+        )
+    return result
 
 
 @router.delete("/strava/disconnect", response_model=schemas.StravaOut)

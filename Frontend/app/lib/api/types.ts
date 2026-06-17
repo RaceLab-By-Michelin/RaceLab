@@ -313,3 +313,23 @@ export interface StravaSyncOut {
   imported: number;
   skipped: number;
 }
+
+export interface StravaClubOut {
+  id: number;
+  name: string;
+  profile_medium: string | null;
+  cover_photo: string | null;
+  sport_type: string | null;
+  city: string | null;
+  member_count: number | null;
+}
+
+export interface StravaClubMemberOut {
+  strava_id: number | null;
+  firstname: string;
+  lastname: string;
+  profile_medium: string | null;
+  city: string | null;
+  is_app_user: boolean;
+  is_self: boolean;
+}

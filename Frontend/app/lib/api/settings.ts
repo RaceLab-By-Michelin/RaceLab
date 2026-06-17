@@ -5,6 +5,8 @@ import type {
   StravaOut,
   StravaAuthorizeUrlOut,
   StravaSyncOut,
+  StravaClubOut,
+  StravaClubMemberOut,
 } from "./types";
 
 export const settingsApi = {
@@ -43,4 +45,12 @@ export const settingsApi = {
   /** DELETE /settings/strava/disconnect */
   disconnectStrava: (): Promise<StravaOut> =>
     api.delete<StravaOut>("/settings/strava/disconnect").then((r) => r.data),
+
+  /** GET /settings/strava/clubs — clubs Strava de l'athlète connecté */
+  getStravaClubs: (): Promise<StravaClubOut[]> =>
+    api.get<StravaClubOut[]>("/settings/strava/clubs").then((r) => r.data),
+
+  /** GET /settings/strava/clubs/{id}/members — membres d'un club, avec is_app_user/is_self */
+  getStravaClubMembers: (clubId: number): Promise<StravaClubMemberOut[]> =>
+    api.get<StravaClubMemberOut[]>(`/settings/strava/clubs/${clubId}/members`).then((r) => r.data),
 };

@@ -380,3 +380,25 @@ class StravaExchangeIn(BaseModel):
 class StravaSyncOut(BaseModel):
     imported: int
     skipped: int
+
+
+# ─── Strava : clubs + membres (vue + invitation par lien à partager) ─────────
+
+class StravaClubOut(BaseModel):
+    id: int
+    name: str
+    profile_medium: Optional[str] = None
+    cover_photo: Optional[str] = None
+    sport_type: Optional[str] = None
+    city: Optional[str] = None
+    member_count: Optional[int] = None
+
+
+class StravaClubMemberOut(BaseModel):
+    strava_id: Optional[int] = None
+    firstname: str
+    lastname: str
+    profile_medium: Optional[str] = None
+    city: Optional[str] = None
+    is_app_user: bool = False
+    is_self: bool = False

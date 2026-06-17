@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Settings, Shield, Info, Loader, LogOut } from "lucide-react";
+import { ChevronRight, Settings, Shield, Info, Loader, LogOut, Users } from "lucide-react";
 import { AppHeader } from "./ui/AppHeader";
 import { AppFooter } from "./ui/AppFooter";
 import { COLORS, FONTS } from "@/app/lib/constants";
@@ -76,7 +76,7 @@ function SettingRow({
 
 // ─── Strava section ──────────────────────────────────────────────────────────
 
-function StravaSection() {
+function StravaSection({ onNavigate }: { onNavigate: (screen: string) => void }) {
   const [strava, setStrava] = useState<StravaOut | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -166,7 +166,23 @@ function StravaSection() {
             {acting && <Loader size={12} className="animate-spin" />}
             Synchroniser mes sorties vélo
           </button>
-        ) : (
+        ) : null}
+        {connected && (
+          <button
+            onClick={() => onNavigate("strava-clubs")}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all"
+            style={{
+              background: COLORS.gray05,
+              color: COLORS.blueDark,
+              fontFamily: FONTS.title,
+              border: `1px solid ${COLORS.glassBorder}`,
+            }}
+          >
+            <Users size={12} />
+            Voir mes clubs &amp; inviter des amis
+          </button>
+        )}
+        {!connected && (
           <button
             onClick={handleConnect}
             disabled={acting}
@@ -269,7 +285,7 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
 
         {/* Strava */}
         <SectionHeader label="Intégrations" />
-        <StravaSection />
+        <StravaSection onNavigate={onNavigate} />
 
         {/* À propos */}
         <SectionHeader label="À propos" />

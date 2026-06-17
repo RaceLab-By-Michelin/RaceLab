@@ -15,6 +15,8 @@ from app import config
 
 TOKEN_URL = "https://www.strava.com/oauth/token"
 ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities"
+ATHLETE_CLUBS_URL = "https://www.strava.com/api/v3/athlete/clubs"
+CLUB_MEMBERS_URL = "https://www.strava.com/api/v3/clubs/{club_id}/members"
 
 AUTHORIZE_BASE_URL = "https://www.strava.com/oauth/authorize"
 
@@ -141,3 +143,56 @@ def fetch_recent_activities(access_token: str, per_page: int = 30) -> list[dict]
     resp.raise_for_status()
     activities = resp.json()
     return [a for a in activities if a.get("type") in BIKE_TYPES]
+
+
+# Garde-fou pagination pour les clubs/membres : ces listes restent en pratique
+# bien plus petites que l'historique d'activités, un cap plus bas suffit.
+CLUB_MAX_PAGES = 10
+
+
+def fetch_athlete_clubs(access_token: str, per_page: int = 30) -> list[dict]:
+    """Récupère les clubs Strava auxquels l'athlète authentifié appartient.
+
+    Pagine jusqu'à une page vide ou plus courte que `per_page`, avec le même
+    garde-fou anti-boucle-infinie que `fetch_activities` (cap CLUB_MAX_PAGES).
+    """
+    all_clubs: list[dict] = []
+    page = 1
+    while page <= CLUB_MAX_PAGES:
+        resp = httpx.get(
+            ATHLETE_CLUBS_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"per_page": per_page, "page": page},
+            timeout=15.0,
+        )
+        resp.raise_for_status()
+        batch = resp.json()
+        if not batch:
+            break
+        all_clubs.extend(batch)
+        if len(batch) < per_page:
+            break
+        page += 1
+    return all_clubs
+
+
+def fetch_club_members(access_token: str, club_id: int, per_page: int = 100) -> list[dict]:
+    """Récupère les membres d'un club Strava, en paginant (cap CLUB_MAX_PAGES)."""
+    all_members: list[dict] = []
+    page = 1
+    while page <= CLUB_MAX_PAGES:
+        resp = httpx.get(
+            CLUB_MEMBERS_URL.format(club_id=club_id),
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"per_page": per_page, "page": page},
+            timeout=15.0,
+        )
+        resp.raise_for_status()
+        batch = resp.json()
+        if not batch:
+            break
+        all_members.extend(batch)
+        if len(batch) < per_page:
+            break
+        page += 1
+    return all_members
