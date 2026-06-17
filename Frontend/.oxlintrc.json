@@ -1,0 +1,37 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"env": {
+		"browser": true,
+		"node": true,
+		"es2022": true
+	},
+	"plugins": ["eslint", "typescript", "unicorn", "oxc", "react", "jsx-a11y", "nextjs", "vitest"],
+	"categories": {
+		"correctness": "warn",
+		"suspicious": "warn",
+		"perf": "warn"
+	},
+	"options": {
+		"typeAware": true
+	},
+	"settings": {
+		"next": {
+			"rootDir": "./"
+		}
+	},
+	"rules": {
+		"react/react-in-jsx-scope": "off",
+		"typescript/no-floating-promises": "off",
+		"vitest/require-mock-type-parameters": "off"
+	},
+	"ignorePatterns": [
+		".next",
+		"build",
+		"coverage",
+		"dist",
+		"node_modules",
+		"out",
+		"test-results",
+		"tsconfig.tsbuildinfo"
+	]
+}

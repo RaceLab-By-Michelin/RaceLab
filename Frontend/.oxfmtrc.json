@@ -1,0 +1,49 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"printWidth": 120,
+	"useTabs": true,
+	"semi": true,
+	"singleQuote": true,
+	"trailingComma": "all",
+	"sortImports": {
+		"customGroups": [
+			{
+				"groupName": "react-libs",
+				"elementNamePattern": ["react", "react/**"]
+			},
+			{
+				"groupName": "internal",
+				"elementNamePattern": ["@/**"]
+			}
+		],
+		"groups": [
+			"type-import",
+			"react-libs",
+			["value-builtin", "value-external"],
+			"internal",
+			["type-parent", "type-sibling", "type-index"],
+			["value-parent", "value-sibling", "value-index"],
+			"unknown"
+		]
+	},
+	"sortTailwindcss": {
+		"stylesheet": "./app/globals.css",
+		"functions": ["clsx", "cn", "twMerge", "twJoin"]
+	},
+	"ignorePatterns": [
+		"*.d.ts",
+		"*.min.*",
+		".next",
+		".yarn",
+		"__snapshots__",
+		"build",
+		"coverage",
+		"dist",
+		"node_modules",
+		"out",
+		"package-lock.json",
+		"pnpm-lock.yaml",
+		"test-results",
+		"tsconfig.tsbuildinfo"
+	]
+}
