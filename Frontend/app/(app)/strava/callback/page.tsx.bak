@@ -1,0 +1,95 @@
+"use client";
+
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Loader, CheckCircle2, XCircle } from "lucide-react";
+import { COLORS, FONTS } from "@/app/lib/constants";
+import { settingsApi } from "@/app/lib/api";
+
+// Un code d'autorisation Strava est à usage unique : si cette page est montée
+// deux fois pour le même code (Strict Mode en dev, rechargement, retour arrière…)
+// le deuxième échange échoue côté Strava avec "AuthorizationCode invalid".
+// On marque les codes déjà traités pour ne jamais les ré-échanger.
+const EXCHANGED_KEY_PREFIX = "strava_code_exchanged_";
+
+function StravaCallbackContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const code = searchParams.get("code");
+  const authError = searchParams.get("error");
+  const alreadyExchanged =
+    !!code && typeof window !== "undefined" && sessionStorage.getItem(EXCHANGED_KEY_PREFIX + code) === "1";
+  const exchangeStarted = useRef(false);
+
+  const [status, setStatus] = useState<"loading" | "success" | "error">(
+    authError || !code ? "error" : alreadyExchanged ? "success" : "loading"
+  );
+  const [message, setMessage] = useState(
+    authError
+      ? "Vous avez refusé l'autorisation Strava."
+      : !code
+      ? "Code d'autorisation manquant."
+      : alreadyExchanged
+      ? "Compte Strava déjà connecté."
+      : "Connexion à Strava en cours…"
+  );
+
+  useEffect(() => {
+    if (alreadyExchanged) {
+      const t = setTimeout(() => router.push("/settings"), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [alreadyExchanged, router]);
+
+  useEffect(() => {
+    if (authError || !code || alreadyExchanged || exchangeStarted.current) return;
+    exchangeStarted.current = true;
+
+    settingsApi
+      .exchangeStravaCode(code)
+      .then(() => {
+        sessionStorage.setItem(EXCHANGED_KEY_PREFIX + code, "1");
+        setStatus("success");
+        setMessage("Compte Strava connecté avec succès !");
+        setTimeout(() => router.push("/settings"), 1500);
+      })
+      .catch(() => {
+        setStatus("error");
+        setMessage("La connexion à Strava a échoué. Réessayez depuis les paramètres.");
+      });
+  }, [code, authError, alreadyExchanged, router]);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4" style={{ background: COLORS.bgGradient }}>
+      {status === "loading" && <Loader size={28} color={COLORS.blue} className="animate-spin" />}
+      {status === "success" && <CheckCircle2 size={28} color="#16A34A" />}
+      {status === "error" && <XCircle size={28} color={COLORS.danger} />}
+      <p className="text-[13px] text-center max-w-xs" style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}>
+        {message}
+      </p>
+      {status === "error" && (
+        <button
+          onClick={() => router.push("/settings")}
+          className="px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider"
+          style={{ background: COLORS.yellow, color: COLORS.blueDark, fontFamily: FONTS.title }}
+        >
+          Retour aux paramètres
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default function StravaCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-full" style={{ background: COLORS.bgGradient }}>
+          <Loader size={28} color={COLORS.blue} className="animate-spin" />
+        </div>
+      }
+    >
+      <StravaCallbackContent />
+    </Suspense>
+  );
+}

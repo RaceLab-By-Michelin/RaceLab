@@ -1,0 +1,993 @@
+"use client"
+
+import { useState, useEffect } from "react";
+import { Trophy, Star, Clock, Flame, Medal, ChevronRight, Plus, Calendar, Target, Gift, Dice5, Sparkle, Check } from "lucide-react";
+import { AppHeader } from "./ui/AppHeader";
+import { AppFooter } from "./ui/AppFooter";
+import { COLORS, FONTS } from "@/app/lib/constants";
+import { challengesApi, eventsApi, labApi } from "@/app/lib/api";
+import type { ChallengeOut, EventOut, EventGoalType, TireTrialOut } from "@/app/lib/api";
+
+// ─── Concurrents fixes (non stockés en backend) ─────────────────────────────
+// "Vous" n'a pas de rang fixe : sa position est recalculée dynamiquement en
+// fonction de son kilométrage réel comparé à celui des autres concurrents
+// (voir buildLeaderboard ci-dessous).
+
+const OTHER_RACERS = [
+  { name: "Alexandre M.", km: 98.4 },
+  { name: "Sophie L.", km: 94.1 },
+  { name: "Pierre D.", km: 91.7 },
+  { name: "Marc T.", km: 87.2 },
+  { name: "Julie R.", km: 83.6 },
+  { name: "Thomas B.", km: 68.9 },
+  { name: "Camille V.", km: 65.0 },
+  { name: "Éric P.", km: 61.2 },
+  { name: "Nadia K.", km: 58.4 },
+] as const;
+
+interface LeaderboardEntry {
+  rank: number;
+  name: string;
+  km: number;
+  badge?: string;
+  isUser?: boolean;
+}
+
+/** Insère l'utilisateur parmi les autres concurrents en fonction de son
+ * kilométrage réel, puis recalcule le classement (rang + médailles) pour
+ * que "Vous" apparaisse à la bonne position plutôt qu'à un rang fixe. */
+function buildLeaderboard(userKm: number): LeaderboardEntry[] {
+  const all: { name: string; km: number; isUser?: boolean }[] = [
+    ...OTHER_RACERS,
+    { name: "Vous", km: userKm, isUser: true },
+  ];
+  return all
+    .sort((a, b) => b.km - a.km)
+    .map((entry, i) => {
+      const rank = i + 1;
+      const badge = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : entry.isUser ? "★" : undefined;
+      return { rank, name: entry.name, km: entry.km, badge, isUser: entry.isUser };
+    });
+}
+
+// ─── Sub-components ────────────────────────────────────────────────────────
+
+function ActiveChallengeBanner({ challenge }: { challenge: ChallengeOut | null }) {
+  const progressKm = challenge?.progress_km ?? 0;
+  const targetKm = challenge?.target_km ?? 100;
+  const progressPct = targetKm > 0 ? Math.min(100, (progressKm / targetKm) * 100) : 0;
+  const title = challenge?.name ?? "24H DU MANS — SCUDERIA FERRARI EDITION";
+
+  return (
+    <div
+      className="mx-5 mt-4 mb-4 rounded-2xl overflow-hidden glass-panel"
+    >
+      <div className="relative h-36">
+        <img
+          src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=200&fit=crop&auto=format"
+          alt="24h du Mans racing event"
+          className="w-full h-full object-cover"
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,32,91,0.80) 100%)" }}
+        />
+        <div
+          className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+          style={{ background: "rgba(183,28,28,0.92)", backdropFilter: "blur(8px)" }}
+        >
+          <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          <span
+            className="text-[9px] font-black text-white uppercase tracking-wider"
+            style={{ fontFamily: FONTS.title }}
+          >
+            EN DIRECT
+          </span>
+        </div>
+        <div className="absolute bottom-3 left-4 right-4">
+          <div
+            className="text-[10px] uppercase tracking-widest mb-1 font-bold"
+            style={{ color: COLORS.yellow, fontFamily: FONTS.title }}
+          >
+            Challenge Partenaire
+          </div>
+          <h2
+            className="text-white leading-tight"
+            style={{ fontFamily: FONTS.title, fontSize: "18px", fontWeight: 800 }}
+          >
+            {title.toUpperCase()}
+          </h2>
+        </div>
+      </div>
+
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-4">
+            <KmStat value={progressKm} label="km parcourus" />
+            <span style={{ color: COLORS.gray20 }}>/</span>
+            <KmStat value={targetKm} label="objectif km" />
+          </div>
+          {challenge && (
+            <div className="flex items-center gap-1">
+              <Clock size={10} color={COLORS.gray40} />
+              <span className="text-[10px]" style={{ color: COLORS.gray40, fontFamily: FONTS.mono }}>
+                {new Date(challenge.end_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="w-full h-2 rounded-full overflow-hidden mb-1.5" style={{ background: COLORS.gray10 }}>
+          <div
+            className="h-full rounded-full transition-all duration-1000"
+            style={{ width: `${progressPct}%`, background: COLORS.yellow }}
+          />
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+            {Math.round(progressPct)}% complété
+          </span>
+          <span className="text-[10px] font-semibold" style={{ color: COLORS.blue, fontFamily: FONTS.body }}>
+            {(targetKm - progressKm).toFixed(1)} km restants
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KmStat({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="text-center">
+      <div className="font-bold text-[14px]" style={{ color: COLORS.blue, fontFamily: FONTS.mono }}>
+        {value.toFixed(value % 1 === 0 ? 0 : 1)}
+      </div>
+      <div className="text-[9px] uppercase tracking-wider" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function LeaderboardRow({
+  entry,
+  isLast,
+  gapKm,
+  participants,
+}: {
+  entry: LeaderboardEntry;
+  isLast: boolean;
+  gapKm?: number;
+  participants?: number;
+}) {
+  const isUser = !!entry.isUser;
+  const km = entry.km;
+
+  return (
+    <div
+      className="flex items-center px-4 py-2.5 gap-3 transition-all"
+      style={{
+        borderBottom: isLast ? "none" : `1px solid ${COLORS.gray05}`,
+        background: isUser ? "rgba(252,229,0,0.10)" : "transparent",
+        borderLeft: isUser ? `3px solid ${COLORS.yellow}` : "3px solid transparent",
+        boxShadow: isUser ? `0 0 0 1px ${COLORS.glowYellow} inset` : "none",
+      }}
+    >
+      <div className="w-5 text-center">
+        {entry.badge ? (
+          <span className="text-[12px]">{entry.badge}</span>
+        ) : (
+          <span className="text-[11px]" style={{ color: COLORS.gray40, fontFamily: FONTS.mono }}>
+            {entry.rank}
+          </span>
+        )}
+      </div>
+      <span
+        className="flex-1 text-[12px]"
+        style={{
+          fontFamily: FONTS.body,
+          fontWeight: isUser ? 700 : 400,
+          color: isUser ? COLORS.blue : COLORS.grayDark,
+        }}
+      >
+        {entry.name}
+        {isUser && (
+          <span className="text-[9px] ml-1 opacity-60" style={{ color: COLORS.blue }}>
+            (vous){participants ? ` · ${entry.rank}e / ${participants}` : ""}
+          </span>
+        )}
+      </span>
+      <div className="text-right flex-shrink-0">
+        <div
+          className="text-[11px]"
+          style={{
+            fontFamily: FONTS.mono,
+            color: isUser ? COLORS.blue : COLORS.gray40,
+            fontWeight: isUser ? 700 : 400,
+          }}
+        >
+          {km.toFixed(1)} km
+        </div>
+        {gapKm !== undefined && gapKm > 0 && (
+          <div className="text-[9px]" style={{ fontFamily: FONTS.mono, color: COLORS.gray40 }}>
+            +{gapKm.toFixed(1)}km
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Leaderboard({ activeChallenge }: { activeChallenge: ChallengeOut | null }) {
+  const userKm = activeChallenge?.progress_km ?? 0;
+  const participants = activeChallenge?.participants;
+  const leaderboard = buildLeaderboard(userKm);
+
+  return (
+    <div
+      className="mx-5 mb-4 rounded-2xl overflow-hidden glass-panel"
+    >
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: `1px solid ${COLORS.gray10}` }}
+      >
+        <div className="flex items-center gap-2">
+          <Trophy size={13} color={COLORS.blue} />
+          <span
+            className="text-[12px] font-bold uppercase tracking-widest"
+            style={{ color: COLORS.blue, fontFamily: FONTS.title }}
+          >
+            Classement Live
+          </span>
+        </div>
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+          style={{ background: COLORS.yellow }}
+        >
+          <Star size={9} color={COLORS.blueDark} fill={COLORS.blueDark} />
+          <span
+            className="text-[9px] font-bold uppercase"
+            style={{ color: COLORS.blueDark, fontFamily: FONTS.title }}
+          >
+            TOP 10 : Pneus Offerts
+          </span>
+        </div>
+      </div>
+
+      {/* Rows */}
+      {leaderboard.map((entry, i) => {
+        const prevKm = i > 0 ? leaderboard[i - 1].km : undefined;
+        const gapKm = prevKm !== undefined ? prevKm - entry.km : undefined;
+        return (
+          <LeaderboardRow
+            key={entry.rank}
+            entry={entry}
+            isLast={i === leaderboard.length - 1}
+            gapKm={gapKm}
+            participants={participants}
+          />
+        );
+      })}
+
+      {/* Reward note */}
+      <div
+        className="mx-3 mb-3 mt-2 px-3 py-2.5 rounded-xl"
+        style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}
+      >
+        <div className="flex items-center gap-2">
+          <Star size={11} color="#B45309" fill="#B45309" />
+          <p className="text-[11px]" style={{ color: "#78350F", fontFamily: FONTS.body }}>
+            <span className="font-bold">Top 10 :</span> Paire de pneus MICHELIN offerte — expédiée par{" "}
+            <span className="font-semibold">Alltricks</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Past Challenges + Badges ───────────────────────────────────────────────
+
+function BadgesWall({ challenges }: { challenges: ChallengeOut[] }) {
+  if (challenges.length === 0) return null;
+  return (
+    <div
+      className="mx-5 mb-4 rounded-2xl p-4 glass-panel"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <Medal size={13} color={COLORS.blue} />
+        <span
+          className="text-[12px] font-bold uppercase tracking-widest"
+          style={{ color: COLORS.blue, fontFamily: FONTS.title }}
+        >
+          Badges Gagnés
+        </span>
+        <div
+          className="ml-auto px-2 py-0.5 rounded-full text-[9px] font-bold"
+          style={{ background: COLORS.yellow, color: COLORS.blueDark, fontFamily: FONTS.title }}
+        >
+          {challenges.length} challenges
+        </div>
+      </div>
+      <div className="flex gap-2 flex-wrap">
+        {challenges.map((c) => (
+          <div
+            key={c.id}
+            className="flex flex-col items-center gap-1 p-2.5 rounded-xl"
+            style={{ background: COLORS.gray05, minWidth: "56px" }}
+          >
+            <span className="text-2xl">{c.badge_emoji ?? "🏅"}</span>
+            <span
+              className="text-[8px] font-bold uppercase tracking-wider text-center leading-tight"
+              style={{ color: COLORS.blue, fontFamily: FONTS.title }}
+            >
+              {c.badge_label ?? "Complété"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PastChallengeRow({ challenge, isLast }: { challenge: ChallengeOut; isLast: boolean }) {
+  const rank = challenge.rank ?? 0;
+  const podium = rank > 0 && rank <= 3;
+  const totalKm = challenge.target_km ?? challenge.progress_km;
+  const date = new Date(challenge.end_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+
+  return (
+    <div
+      className="px-4 py-3 flex items-center gap-3"
+      style={{
+        borderBottom: isLast ? "none" : `1px solid ${COLORS.gray05}`,
+        background: podium ? "#FFFBEB" : "transparent",
+      }}
+    >
+      <span className="text-xl w-7 text-center flex-shrink-0">{challenge.badge_emoji ?? "🏅"}</span>
+      <div className="flex-1 min-w-0">
+        <div
+          className="text-[12px] font-bold truncate"
+          style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}
+        >
+          {challenge.name}
+        </div>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-[9px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+            {date}
+          </span>
+          <span className="text-[9px]" style={{ color: COLORS.gray20 }}>•</span>
+          <span className="text-[9px]" style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}>
+            {challenge.progress_km.toFixed(0)} km
+          </span>
+        </div>
+        {challenge.reward && (
+          <div className="mt-1 text-[9px] font-semibold" style={{ color: "#B45309" }}>
+            🎁 {challenge.reward}
+          </div>
+        )}
+      </div>
+      {rank > 0 && (
+        <div className="text-right flex-shrink-0">
+          <div
+            className="text-[13px] font-black"
+            style={{ color: podium ? COLORS.blue : COLORS.grayDark, fontFamily: FONTS.mono }}
+          >
+            #{rank}
+          </div>
+          <div className="text-[9px]" style={{ color: COLORS.gray40, fontFamily: FONTS.body }}>
+            /{challenge.participants}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PastChallengesHistory({ challenges }: { challenges: ChallengeOut[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? challenges : challenges.slice(0, 3);
+
+  return (
+    <div
+      className="mx-5 mb-4 rounded-2xl overflow-hidden glass-panel"
+    >
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: `1px solid ${COLORS.gray10}` }}
+      >
+        <div className="flex items-center gap-2">
+          <Trophy size={13} color={COLORS.blue} />
+          <span
+            className="text-[12px] font-bold uppercase tracking-widest"
+            style={{ color: COLORS.blue, fontFamily: FONTS.title }}
+          >
+            Historique
+          </span>
+        </div>
+        <span className="text-[10px]" style={{ color: COLORS.gray40, fontFamily: FONTS.mono }}>
+          {challenges.length} courses
+        </span>
+      </div>
+
+      {challenges.length === 0 ? (
+        <div className="px-4 py-6 text-center text-[12px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+          Aucun challenge terminé
+        </div>
+      ) : (
+        visible.map((c, i) => (
+          <PastChallengeRow
+            key={c.id}
+            challenge={c}
+            isLast={i === visible.length - 1 && (expanded || challenges.length <= 3)}
+          />
+        ))
+      )}
+
+      {challenges.length > 3 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 transition-all"
+          style={{
+            borderTop: `1px solid ${COLORS.gray10}`,
+            color: COLORS.blue,
+            fontFamily: FONTS.title,
+            fontSize: "11px",
+            fontWeight: 700,
+          }}
+        >
+          {expanded ? "Voir moins" : `Voir ${challenges.length - 3} de plus`}
+          <ChevronRight
+            size={12}
+            style={{ transform: expanded ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform 0.2s" }}
+          />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Tabs ───────────────────────────────────────────────────────────────────
+
+type ChallengesTab = "defis" | "evenements" | "lab";
+
+function TabBar({ active, onChange }: { active: ChallengesTab; onChange: (t: ChallengesTab) => void }) {
+  const tabs: { id: ChallengesTab; label: string }[] = [
+    { id: "defis", label: "Défis" },
+    { id: "evenements", label: "Événements" },
+    { id: "lab", label: "Lab" },
+  ];
+  return (
+    <div className="mx-5 mb-3 flex gap-1.5 p-1 rounded-xl" style={{ background: COLORS.gray05 }}>
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          className="flex-1 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all"
+          style={{
+            fontFamily: FONTS.title,
+            background: active === t.id ? COLORS.white : "transparent",
+            color: active === t.id ? COLORS.blue : COLORS.gray50,
+            boxShadow: active === t.id ? "0 1px 3px rgba(0,32,91,0.12)" : "none",
+          }}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Événements ─────────────────────────────────────────────────────────────
+
+const GOAL_TYPE_LABELS: Record<EventGoalType, string> = {
+  distance: "km",
+  elevation: "m D+",
+  rides: "sorties",
+};
+
+function EventCard({ event, onJoin }: { event: EventOut; onJoin: (id: number) => void }) {
+  const progressPct = event.goal_value > 0 ? Math.min(100, (event.progress_value / event.goal_value) * 100) : 0;
+  const ended = new Date(event.end_date) < new Date();
+
+  return (
+    <div className="mx-5 mb-4 rounded-2xl overflow-hidden glass-panel p-4">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <h3 className="text-[14px] font-bold leading-tight" style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}>
+          {event.name}
+        </h3>
+        {event.joined && (
+          <span
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase flex-shrink-0"
+            style={{ background: COLORS.achievedLight, color: COLORS.achieved, fontFamily: FONTS.title }}
+          >
+            <Check size={9} /> Inscrit
+          </span>
+        )}
+      </div>
+
+      <p className="text-[11px] mb-3 leading-snug" style={{ color: COLORS.grayDark, fontFamily: FONTS.body }}>
+        {event.description}
+      </p>
+
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <div className="flex items-center gap-1">
+          <Target size={11} color={COLORS.blue} />
+          <span className="text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}>
+            Objectif {event.goal_value} {GOAL_TYPE_LABELS[event.goal_type]}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Calendar size={11} color={COLORS.blue} />
+          <span className="text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}>
+            {new Date(event.start_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} →{" "}
+            {new Date(event.end_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+          </span>
+        </div>
+        {event.terrain_type && (
+          <span
+            className="px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase"
+            style={{ background: COLORS.startLight, color: COLORS.blue, fontFamily: FONTS.title }}
+          >
+            {event.terrain_type}
+          </span>
+        )}
+      </div>
+
+      {event.reward && (
+        <div className="flex items-center gap-1.5 mb-3">
+          <Gift size={11} color="#B45309" />
+          <span className="text-[10px] font-semibold" style={{ color: "#78350F", fontFamily: FONTS.body }}>
+            {event.reward}
+          </span>
+        </div>
+      )}
+
+      {event.joined ? (
+        <>
+          <div className="w-full h-2 rounded-full overflow-hidden mb-1.5" style={{ background: COLORS.gray10 }}>
+            <div
+              className="h-full rounded-full transition-all duration-1000"
+              style={{ width: `${progressPct}%`, background: COLORS.yellow }}
+            />
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+              {event.progress_value.toFixed(0)} / {event.goal_value} {GOAL_TYPE_LABELS[event.goal_type]}
+            </span>
+            <span className="text-[10px] font-semibold" style={{ color: COLORS.blue, fontFamily: FONTS.body }}>
+              {event.participants} participant{event.participants > 1 ? "s" : ""}
+              {event.rank ? ` · #${event.rank}` : ""}
+            </span>
+          </div>
+        </>
+      ) : (
+        <button
+          onClick={() => onJoin(event.id)}
+          disabled={ended}
+          className="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-opacity disabled:opacity-40"
+          style={{ background: COLORS.blue, color: COLORS.white, fontFamily: FONTS.title }}
+        >
+          {ended ? "Terminé" : "Rejoindre"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CreateEventForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [goalType, setGoalType] = useState<EventGoalType>("distance");
+  const [goalValue, setGoalValue] = useState("100");
+  const [terrainType, setTerrainType] = useState("");
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().slice(0, 10);
+  });
+  const [reward, setReward] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const inputStyle = {
+    fontFamily: FONTS.body,
+    background: COLORS.white,
+    border: `1px solid ${COLORS.gray10}`,
+  };
+
+  async function handleSubmit() {
+    if (!name.trim() || !description.trim() || !goalValue) return;
+    setSubmitting(true);
+    try {
+      await eventsApi.create({
+        name: name.trim(),
+        description: description.trim(),
+        goal_type: goalType,
+        goal_value: parseFloat(goalValue),
+        terrain_type: terrainType || null,
+        start_date: new Date(startDate).toISOString(),
+        end_date: new Date(endDate).toISOString(),
+        reward: reward || null,
+      });
+      onCreated();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="mx-5 mb-4 rounded-2xl overflow-hidden glass-panel p-4">
+      <h3 className="text-[12px] font-bold uppercase tracking-widest mb-3" style={{ color: COLORS.blue, fontFamily: FONTS.title }}>
+        Nouvel événement
+      </h3>
+
+      <div className="flex flex-col gap-2.5">
+        <input
+          placeholder="Nom du défi"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="px-3 py-2.5 rounded-xl text-[12px] outline-none"
+          style={inputStyle}
+        />
+        <textarea
+          placeholder="Décrivez l'objectif du défi"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={2}
+          className="px-3 py-2.5 rounded-xl text-[12px] outline-none resize-none"
+          style={inputStyle}
+        />
+        <div className="flex gap-2">
+          <select
+            value={goalType}
+            onChange={(e) => setGoalType(e.target.value as EventGoalType)}
+            className="flex-1 px-3 py-2.5 rounded-xl text-[12px] outline-none"
+            style={inputStyle}
+          >
+            <option value="distance">Distance (km)</option>
+            <option value="elevation">Dénivelé (m)</option>
+            <option value="rides">Nombre de sorties</option>
+          </select>
+          <input
+            type="number"
+            placeholder="Valeur"
+            value={goalValue}
+            onChange={(e) => setGoalValue(e.target.value)}
+            className="w-24 px-3 py-2.5 rounded-xl text-[12px] outline-none"
+            style={inputStyle}
+          />
+        </div>
+        <input
+          placeholder="Terrain (route, gravel, vtt, mixte) — facultatif"
+          value={terrainType}
+          onChange={(e) => setTerrainType(e.target.value)}
+          className="px-3 py-2.5 rounded-xl text-[12px] outline-none"
+          style={inputStyle}
+        />
+        <div className="flex gap-2">
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="flex-1 px-3 py-2.5 rounded-xl text-[12px] outline-none"
+            style={inputStyle}
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="flex-1 px-3 py-2.5 rounded-xl text-[12px] outline-none"
+            style={inputStyle}
+          />
+        </div>
+        <input
+          placeholder="Récompense — facultatif"
+          value={reward}
+          onChange={(e) => setReward(e.target.value)}
+          className="px-3 py-2.5 rounded-xl text-[12px] outline-none"
+          style={inputStyle}
+        />
+      </div>
+
+      <div className="flex gap-2 mt-3">
+        <button
+          onClick={onCancel}
+          className="flex-1 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider"
+          style={{ background: COLORS.gray05, color: COLORS.gray50, fontFamily: FONTS.title }}
+        >
+          Annuler
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={submitting || !name.trim() || !description.trim()}
+          className="flex-1 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider disabled:opacity-40"
+          style={{ background: COLORS.blue, color: COLORS.white, fontFamily: FONTS.title }}
+        >
+          {submitting ? "Création…" : "Créer"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EventsTab() {
+  const [events, setEvents] = useState<EventOut[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+
+  function refresh() {
+    eventsApi
+      .list()
+      .then(setEvents)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  async function handleJoin(id: number) {
+    try {
+      const updated = await eventsApi.join(id);
+      setEvents((prev) => prev.map((e) => (e.id === id ? updated : e)));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: COLORS.blue, borderTopColor: "transparent" }} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="mx-5 mb-4">
+        <button
+          onClick={() => setShowForm((v) => !v)}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-opacity"
+          style={{ background: showForm ? COLORS.gray05 : COLORS.yellow, color: COLORS.blueDark, fontFamily: FONTS.title }}
+        >
+          <Plus size={13} /> {showForm ? "Fermer" : "Créer un événement"}
+        </button>
+      </div>
+
+      {showForm && (
+        <CreateEventForm
+          onCreated={() => {
+            setShowForm(false);
+            refresh();
+          }}
+          onCancel={() => setShowForm(false)}
+        />
+      )}
+
+      {events.length === 0 ? (
+        <div className="mx-5 mb-4 rounded-2xl glass-panel p-6 text-center">
+          <p className="text-[12px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+            Aucun événement pour le moment. Créez le premier !
+          </p>
+        </div>
+      ) : (
+        events.map((e) => <EventCard key={e.id} event={e} onJoin={handleJoin} />)
+      )}
+    </>
+  );
+}
+
+// ─── Michelin Lab (tirages au sort) ───────────────────────────────────────────
+
+function TrialCard({ trial, onEnter }: { trial: TireTrialOut; onEnter: (id: number) => void }) {
+  const statusLabel = trial.status === "open" ? "Inscriptions ouvertes" : trial.status === "closed" ? "Inscriptions closes" : "Tirage effectué";
+  const statusColor = trial.status === "open" ? COLORS.achieved : trial.status === "closed" ? COLORS.warning : COLORS.gray50;
+  const statusBg = trial.status === "open" ? COLORS.achievedLight : trial.status === "closed" ? COLORS.warningLight : COLORS.gray05;
+
+  return (
+    <div className="mx-5 mb-4 rounded-2xl overflow-hidden glass-panel p-4">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2">
+          <Dice5 size={14} color={COLORS.blue} />
+          <h3 className="text-[14px] font-bold leading-tight" style={{ color: COLORS.blueDark, fontFamily: FONTS.body }}>
+            {trial.tire_name}
+          </h3>
+        </div>
+        <span
+          className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase flex-shrink-0"
+          style={{ background: statusBg, color: statusColor, fontFamily: FONTS.title }}
+        >
+          {statusLabel}
+        </span>
+      </div>
+
+      <p className="text-[11px] mb-3 leading-snug" style={{ color: COLORS.grayDark, fontFamily: FONTS.body }}>
+        {trial.description}
+      </p>
+
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        {trial.target_profile && (
+          <span
+            className="px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase"
+            style={{ background: COLORS.startLight, color: COLORS.blue, fontFamily: FONTS.title }}
+          >
+            {trial.target_profile}
+          </span>
+        )}
+        <div className="flex items-center gap-1">
+          <Calendar size={11} color={COLORS.blue} />
+          <span className="text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}>
+            Tirage le {new Date(trial.draw_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+          </span>
+        </div>
+        <span className="text-[10px]" style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}>
+          {trial.entries_count} candidat{trial.entries_count > 1 ? "s" : ""} · {trial.slots} place{trial.slots > 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {trial.preorder_discount_pct && (
+        <div className="flex items-center gap-1.5 mb-3">
+          <Gift size={11} color="#B45309" />
+          <span className="text-[10px] font-semibold" style={{ color: "#78350F", fontFamily: FONTS.body }}>
+            -{trial.preorder_discount_pct}% en pré-commande pour les gagnants
+          </span>
+        </div>
+      )}
+
+      {trial.won ? (
+        <div
+          className="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-center"
+          style={{ background: COLORS.achievedLight, color: COLORS.achieved, fontFamily: FONTS.title }}
+        >
+          🎉 Gagné — testez ce pneu en avant-première
+        </div>
+      ) : trial.entered ? (
+        <div
+          className="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-center"
+          style={{ background: COLORS.gray05, color: COLORS.gray50, fontFamily: FONTS.title }}
+        >
+          {trial.status === "drawn" ? "Tirage effectué — non sélectionné" : "Candidature envoyée"}
+        </div>
+      ) : (
+        <button
+          onClick={() => onEnter(trial.id)}
+          disabled={trial.status !== "open"}
+          className="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-opacity disabled:opacity-40"
+          style={{ background: COLORS.blue, color: COLORS.white, fontFamily: FONTS.title }}
+        >
+          Participer au tirage
+        </button>
+      )}
+    </div>
+  );
+}
+
+function LabTab() {
+  const [trials, setTrials] = useState<TireTrialOut[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    labApi
+      .listTrials()
+      .then(setTrials)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleEnter(id: number) {
+    try {
+      const updated = await labApi.enter(id);
+      setTrials((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: COLORS.blue, borderTopColor: "transparent" }} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="mx-5 mb-4 flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: "#EFF4FB", border: `1px solid ${COLORS.glassBorder}` }}>
+        <Sparkle size={13} color={COLORS.blue} />
+        <p className="text-[10px] leading-snug" style={{ color: COLORS.blue, fontFamily: FONTS.body }}>
+          Testez en exclusivité des prototypes Michelin pas encore commercialisés.
+        </p>
+      </div>
+
+      {trials.length === 0 ? (
+        <div className="mx-5 mb-4 rounded-2xl glass-panel p-6 text-center">
+          <p className="text-[12px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+            Aucun tirage au sort en cours.
+          </p>
+        </div>
+      ) : (
+        trials.map((t) => <TrialCard key={t.id} trial={t} onEnter={handleEnter} />)
+      )}
+    </>
+  );
+}
+
+// ─── Screen ─────────────────────────────────────────────────────────────────
+
+export function ChallengesScreen({ onNavigate }: { onNavigate: (screen: string) => void }) {
+  const [tab, setTab] = useState<ChallengesTab>("defis");
+  const [activeChallenge, setActiveChallenge] = useState<ChallengeOut | null>(null);
+  const [pastChallenges, setPastChallenges] = useState<ChallengeOut[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([challengesApi.getActive(), challengesApi.getPast()])
+      .then(([active, past]) => {
+        setActiveChallenge(active[0] ?? null);
+        setPastChallenges(past);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="flex flex-col h-full" style={{ background: COLORS.bgGradient }}>
+      <AppHeader showLiveEvent onPartnersClick={() => onNavigate("partners")} />
+
+      <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "none" }}>
+        {/* Section title */}
+        <div className="px-5 pt-5 pb-2">
+          <div className="flex items-center gap-2 mb-1">
+            <Flame size={12} color={COLORS.warning} />
+            <p
+              className="text-[10px] uppercase tracking-widest"
+              style={{ color: COLORS.gray50, fontFamily: FONTS.title }}
+            >
+              MICHELIN
+            </p>
+          </div>
+          <h1
+            className="uppercase leading-none"
+            style={{
+              fontFamily: FONTS.title,
+              fontSize: "26px",
+              fontWeight: 800,
+              letterSpacing: "0.04em",
+              color: COLORS.blue,
+            }}
+          >
+            ENDURANCE CHALLENGES
+          </h1>
+        </div>
+
+        <div className="pt-3">
+          <TabBar active={tab} onChange={setTab} />
+        </div>
+
+        {tab === "defis" &&
+          (loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: COLORS.blue, borderTopColor: "transparent" }} />
+            </div>
+          ) : (
+            <>
+              <ActiveChallengeBanner challenge={activeChallenge} />
+              <Leaderboard activeChallenge={activeChallenge} />
+              <BadgesWall challenges={pastChallenges} />
+              <PastChallengesHistory challenges={pastChallenges} />
+            </>
+          ))}
+
+        {tab === "evenements" && <EventsTab />}
+        {tab === "lab" && <LabTab />}
+      </div>
+    </div>
+  );
+}
