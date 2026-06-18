@@ -26,6 +26,11 @@ class User(Base):
     weight_kg = Column(Float, nullable=False, default=75.0)
     height_cm = Column(Float, nullable=False, default=180.0)
 
+    # Objectif personnel de kilométrage total, fixé par l'utilisateur (page
+    # profil) et affiché sur la page d'accueil ("X / objectif km"). Nul tant
+    # qu'aucun objectif n'a été défini : pas d'affichage / pas de notification.
+    goal_km = Column(Float, nullable=True)
+
     # ── Auth ──────────────────────────────────────────────────────────────
     password_hash = Column(String, nullable=False, default="")
     # False jusqu'à ce que l'utilisateur ait renseigné vélo + pneus la première fois

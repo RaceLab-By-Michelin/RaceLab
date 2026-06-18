@@ -30,6 +30,7 @@ class UserOut(BaseModel):
     avatar_url: Optional[str] = None
     weight_kg: float
     height_cm: float
+    goal_km: Optional[float] = None
 
     model_config = {"from_attributes": True}
 
@@ -42,6 +43,7 @@ class UserPatch(BaseModel):
     level_progress: Optional[int] = None
     weight_kg: Optional[float] = None
     height_cm: Optional[float] = None
+    goal_km: Optional[float] = Field(default=None, ge=1)
 
 
 class BikePatch(BaseModel):

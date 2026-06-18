@@ -823,6 +823,7 @@ def _seed_fresh(db: Session) -> None:
             member_since="Janvier 2024",
             level="Expert",
             level_progress=78,
+            goal_km=1000.0,
             bike_brand="Trek",
             bike_model="Domane SL 6",
             bike_year=2023,
