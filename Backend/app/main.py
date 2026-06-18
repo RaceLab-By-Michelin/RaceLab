@@ -5,7 +5,6 @@ from app.database import engine
 from app import models
 from app.routers import user, tires, rides, challenges, settings, auth, events, lab, coach, personal_challenges, retailer
 
-models.Base.metadata.create_all(bind=engine)  # fallback si alembic non exécuté
 
 app = FastAPI(
     title="RaceLab API",
