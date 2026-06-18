@@ -27,7 +27,6 @@ import { challengesApi, eventsApi, labApi } from '@/app/lib/api';
 import type { ChallengeOut, EventOut, EventGoalType, EventVisibility, TireTrialOut } from '@/app/lib/api';
 import { COLORS, FONTS } from '@/app/lib/constants';
 
-import { AppFooter } from './ui/AppFooter';
 import { AppHeader } from './ui/AppHeader';
 import { Badge } from './ui/RaceKit';
 

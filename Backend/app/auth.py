@@ -11,7 +11,8 @@ import os
 import secrets
 from datetime import datetime, timedelta
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session as DBSession
 
 from app.database import get_db
@@ -19,6 +20,12 @@ from app import models
 
 SESSION_TTL_DAYS = 30
 _PBKDF2_ITERATIONS = 260_000
+
+# Schéma de sécurité Bearer : fait apparaître le bouton "Authorize" dans
+# Swagger UI (/docs). Une fois le token (récupéré via /auth/login ou
+# /auth/register) collé dans la popup, il est automatiquement ajouté à
+# l'en-tête `Authorization` de toutes les requêtes "Try it out" suivantes.
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -56,12 +63,12 @@ def delete_session(db: DBSession, token: str) -> None:
 
 
 def get_current_user(
-    authorization: str | None = Header(default=None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: DBSession = Depends(get_db),
 ) -> models.User:
-    if not authorization or not authorization.lower().startswith("bearer "):
+    if not credentials or not credentials.credentials:
         raise HTTPException(status_code=401, detail="Non authentifié")
-    token = authorization.split(" ", 1)[1].strip()
+    token = credentials.credentials.strip()
 
     session = db.query(models.Session).filter(models.Session.token == token).first()
     if not session:

@@ -166,6 +166,13 @@ class TireRecommendationOut(BaseModel):
     discount_pct: int
     discount_code: str
 
+    # ── Bénéfices tangibles (estimés) — vendre la performance, pas le prix ──
+    rolling_resistance_current: float = 0.0
+    rolling_resistance_recommended: float = 0.0
+    rolling_resistance_delta_pct: float = 0.0
+    typical_ride_km: float = 0.0
+    minutes_gained: float = 0.0
+
     model_config = {"from_attributes": True}
 
 
@@ -305,6 +312,87 @@ class EventLeaderboardEntry(BaseModel):
 
 class EventDetailOut(EventOut):
     leaderboard: list[EventLeaderboardEntry] = []
+
+
+# ─── Défi personnalisé ("Pneu pour toi") ──────────────────────────────────
+
+class PersonalChallengeOut(BaseModel):
+    id: int
+    title: str
+    description: str
+    discipline: str
+    target_km: float
+    status: str
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+    adherence_rating: Optional[int] = None
+    comfort_rating: Optional[int] = None
+    speed_rating: Optional[int] = None
+    feedback_comment: Optional[str] = None
+    reward_discount_pct: Optional[int] = None
+    reward_discount_code: Optional[str] = None
+
+    # ── Giveaway pneu mérité ────────────────────────────────────────────────
+    reward_type: str = "discount"   # "discount" | "giveaway"
+    reward_giveaway_tire_catalog_id: Optional[str] = None
+    reward_giveaway_tire_name: Optional[str] = None
+    reward_giveaway_status: Optional[str] = None  # "won" une fois débloqué
+
+    model_config = {"from_attributes": True}
+
+
+class PersonalChallengeStatusOut(BaseModel):
+    """Le défi courant de l'utilisateur + contexte de progression de récompense."""
+    challenge: PersonalChallengeOut
+    completed_count: int = 0          # défis personnels déjà complétés (feedback rempli)
+    next_reward_pct: int = 10         # réduction qui sera débloquée à la complétion de CE défi
+    # Mérite déjà acquis pour débloquer un giveaway pneu (palier de fidélité) —
+    # informe le front en amont, avant même la complétion du défi en cours.
+    giveaway_tier_reached: bool = False
+
+
+class PersonalChallengeFeedbackIn(BaseModel):
+    adherence_rating: int    # 1-5
+    comfort_rating: int      # 1-5
+    speed_rating: int        # 1-5 ("vitesse perçue")
+    comment: Optional[str] = None
+
+
+# ─── Passeport pneu partageable (Feature 3) ───────────────────────────────────
+
+class PassportCardOut(BaseModel):
+    wheel: str
+    tire_name: str
+    km_on_tire: float
+    days_installed: int
+    milestone_km: Optional[int] = None
+    headline: str
+
+
+class PassportOut(BaseModel):
+    front: PassportCardOut
+    rear: PassportCardOut
+
+
+# ─── Retailer B2B (dashboard revendeur, Feature 2) ───────────────────────────
+
+class RetailerZoneOut(BaseModel):
+    city: str
+    rider_count: int
+    dominant_practice: str
+    dominant_practice_share_pct: int
+    practice_breakdown: dict[str, int]
+    tires_near_end_of_life: int
+    tires_near_end_of_life_pct: int
+
+
+class RetailerDashboardOut(BaseModel):
+    zones: list[RetailerZoneOut]
+    total_riders: int
+    weeks_horizon: int
+    generated_note: str = (
+        "Données simulées représentatives du réseau de distribution — démonstration."
+    )
 
 
 # ─── Michelin Lab (tirages au sort) ───────────────────────────────────────────

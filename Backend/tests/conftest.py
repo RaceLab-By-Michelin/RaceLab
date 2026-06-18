@@ -1,15 +1,21 @@
 """
 Fixtures partagées pour la suite de tests backend.
 
-Chaque test reçoit une base SQLite en mémoire fraîche (table créées depuis
-`models.Base.metadata`, donc toujours alignées sur le schéma actuel, sans
-dépendre d'alembic) et un TestClient FastAPI dont la dépendance `get_db` est
-substituée pour pointer vers cette base isolée.
+Chaque test reçoit une base Postgres dédiée aux tests ("racelab_test", servie
+par le même conteneur que le Postgres de dev — voir docker-compose.yml et
+init-test-db.sql), avec les tables recréées depuis `models.Base.metadata`
+(donc toujours alignées sur le schéma actuel, sans dépendre d'alembic) avant
+chaque test puis droppées après. Un TestClient FastAPI a sa dépendance
+`get_db` substituée pour pointer vers cette base.
 
 Important : on utilise `TestClient(app)` SANS le context manager `with`, ce
 qui évite de déclencher l'event `startup` de l'app (donc `seed()` ne tourne
 jamais pendant les tests) — chaque test construit exactement les données
 dont il a besoin, de façon déterministe et isolée des autres tests.
+
+Prérequis : le conteneur Postgres de docker-compose doit tourner
+(`docker compose up -d db`) et exposer le port 5432 sur localhost, ou
+`TEST_DATABASE_URL` doit pointer vers un autre Postgres accessible.
 """
 from __future__ import annotations
 
@@ -19,40 +25,36 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# Évite que l'import de app.main (qui appelle Base.metadata.create_all sur le
-# moteur "réel" au niveau module) ne touche le fichier mbt.db de dev — toute
-# la suite de tests passe par des bases SQLite en mémoire dédiées (cf.
-# fixture db_session), ce moteur "réel" n'est donc jamais utilisé pour de
-# vraies requêtes pendant les tests.
-os.environ.setdefault("DATABASE_URL", "sqlite://")
+# Base Postgres séparée de la base de dev ("racelab"), pour ne jamais polluer
+# les données de dev pendant les tests. Créée automatiquement au premier
+# démarrage du conteneur Postgres via init-test-db.sql.
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL", "postgresql://racelab:racelab_secret@localhost:5432/racelab_test"
+)
+os.environ.setdefault("DATABASE_URL", TEST_DATABASE_URL)
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-from fastapi.testclient import TestClient
 
 from app.database import Base, get_db
 from app import models  # noqa: F401 (enregistre les modèles sur Base.metadata)
 from app.main import app
 from app.auth import create_session
 
+_engine = create_engine(TEST_DATABASE_URL)
+_TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+
 
 @pytest.fixture()
 def db_session():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = TestingSessionLocal()
+    Base.metadata.create_all(bind=_engine)
+    session = _TestingSessionLocal()
     try:
         yield session
     finally:
         session.close()
-        engine.dispose()
+        Base.metadata.drop_all(bind=_engine)
 
 
 @pytest.fixture()

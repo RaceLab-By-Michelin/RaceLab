@@ -120,3 +120,86 @@ def compute_discount(wear_pct: int, brand: str) -> tuple[int, str]:
     base = min(base, 35)
     code = f"MICHELIN{base}" if base else ""
     return base, code
+
+
+# ─── Défi personnalisé ("Pneu pour toi") ────────────────────────────────────
+# Un seul défi à la fois, généré pour un utilisateur précis (jamais partagé
+# avec d'autres riders), choisi selon son profil de pratique dominant.
+
+PERSONAL_CHALLENGE_TEMPLATES = {
+    "Route": {
+        "title": "Ta sortie route signature",
+        "description": "Enchaîne {km} km sur route cette semaine pour sentir tout le grip de tes pneus Michelin Power dans les virages.",
+    },
+    "Gravel": {
+        "title": "Le défi gravel qui n'attend que toi",
+        "description": "Pars explorer {km} km de chemins et graviers — tes Power Gravel sont faits pour ça.",
+    },
+    "VTT": {
+        "title": "Ton défi sentiers",
+        "description": "Roule {km} km en VTT sur un terrain technique pour tester l'adhérence de tes pneus Force XC/AM.",
+    },
+    "Piste": {
+        "title": "Ton chrono personnel",
+        "description": "Vise {km} km à pleine vitesse sur piste pour pousser tes pneus Lithion dans leurs derniers retranchements.",
+    },
+}
+
+BASE_TARGET_KM = {"Route": 40.0, "Gravel": 25.0, "VTT": 20.0, "Piste": 15.0}
+
+
+def pick_personal_challenge(rides: list[models.Ride]) -> dict:
+    """Choisit un défi personnalisé selon le profil de pratique du rider.
+
+    Fonction pure — aucune dépendance DB, aucun lien avec les défis/événements
+    des autres utilisateurs. L'objectif (target_km) part d'une base par
+    discipline, ajustée à la hausse si le rider roule déjà plus que ça en
+    moyenne (pour rester un minimum challengeant).
+    """
+    profile = rider_profile(rides)
+    discipline = dominant_tire_type(profile)
+    base_km = BASE_TARGET_KM.get(discipline, 30.0)
+
+    avg_km = (sum(r.distance_km for r in rides) / len(rides)) if rides else 0.0
+    target_km = round(max(base_km, avg_km * 1.15), 1) if avg_km else base_km
+
+    template = PERSONAL_CHALLENGE_TEMPLATES.get(discipline, PERSONAL_CHALLENGE_TEMPLATES["Route"])
+    return {
+        "title": template["title"],
+        "description": template["description"].format(km=target_km),
+        "discipline": discipline,
+        "target_km": target_km,
+    }
+
+
+def compute_personal_challenge_reward(completed_count: int) -> tuple[int, str]:
+    """Réduction croissante avec le nombre de défis personnels déjà complétés
+    (questionnaire rempli) avant celui-ci : +5% par défi, plafonnée à 35%."""
+    pct = min(10 + 5 * completed_count, 35)
+    code = f"MICHELIN{pct}"
+    return pct, code
+
+
+# ─── Giveaway pneu mérité ────────────────────────────────────────────────────
+# Le pneu offert n'est jamais tiré au sort : il se débloque par le mérite,
+# combinaison d'un palier de fidélité (nombre de défis personnels déjà menés
+# à bien) et d'une performance sur le défi en cours (kilométrage réellement
+# parcouru pendant la fenêtre du défi, au-delà de l'objectif demandé).
+
+GIVEAWAY_TIER_THRESHOLD = 2          # il faut déjà avoir complété ≥ 2 défis personnels
+GIVEAWAY_OVERACHIEVE_FACTOR = 1.2    # + avoir parcouru ≥ 120% de l'objectif du défi en cours
+
+
+def evaluate_giveaway_eligibility(completed_count: int, target_km: float, actual_km: float) -> bool:
+    """True si l'utilisateur a mérité un pneu offert plutôt qu'une réduction.
+
+    Fonction pure — aucune dépendance DB. `completed_count` exclut le défi en
+    cours (calculé avant le passage à "completed"). `actual_km` est le
+    kilométrage réellement parcouru sur les sorties datées entre le début et
+    la fin du défi en cours.
+    """
+    if completed_count < GIVEAWAY_TIER_THRESHOLD:
+        return False
+    if target_km <= 0:
+        return False
+    return actual_km >= target_km * GIVEAWAY_OVERACHIEVE_FACTOR

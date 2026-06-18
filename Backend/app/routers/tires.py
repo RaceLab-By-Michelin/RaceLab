@@ -4,7 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app import models, schemas, recommend
+from app import models, schemas, recommend, benefits, passport
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/tires", tags=["tires"])
@@ -104,9 +104,26 @@ def get_recommendations(db: Session = Depends(get_db), user: models.User = Depen
     target_type = recommend.dominant_tire_type(profile)
     reason = recommend.match_reason(target_type, profile)
 
+    catalog_by_id = {c.id: c for c in catalog}
+
+    # Parcours type + vitesse moyenne = ceux du cycliste, pas un standard
+    # générique — le bénéfice temps gagné doit parler de SA pratique.
+    if rides:
+        typical_ride_km = sum(r.distance_km for r in rides) / len(rides)
+        avg_speed_kmh = sum(r.avg_speed for r in rides) / len(rides)
+    else:
+        typical_ride_km = benefits.DEFAULT_TYPICAL_RIDE_KM
+        avg_speed_kmh = benefits.DEFAULT_AVG_SPEED_KMH
+
     def build(tire: models.Tire) -> schemas.TireRecommendationOut:
         best = recommend.pick_best_tire(catalog, target_type, tire.catalog_id, profile)
         discount_pct, discount_code = recommend.compute_discount(tire.wear_pct, tire.brand)
+
+        current_catalog_entry = catalog_by_id.get(tire.catalog_id) if tire.catalog_id else None
+        current_index = benefits.current_tire_index(current_catalog_entry, target_type, tire.wear_pct)
+        recommended_index = benefits.rolling_resistance_index(best) if best else current_index
+        benefit = benefits.estimate_benefit(current_index, recommended_index, typical_ride_km, avg_speed_kmh)
+
         return schemas.TireRecommendationOut(
             wheel=tire.wheel,
             current_name=tire.name,
@@ -115,9 +132,34 @@ def get_recommendations(db: Session = Depends(get_db), user: models.User = Depen
             match_reason=reason,
             discount_pct=discount_pct,
             discount_code=discount_code,
+            rolling_resistance_current=benefit["current_index"],
+            rolling_resistance_recommended=benefit["recommended_index"],
+            rolling_resistance_delta_pct=benefit["rolling_resistance_delta_pct"],
+            typical_ride_km=benefit["typical_ride_km"],
+            minutes_gained=benefit["minutes_gained"],
         )
 
     return schemas.RecommendationsOut(front=build(front), rear=build(rear))
+
+
+@router.get("/passport", response_model=schemas.PassportOut)
+def get_passport(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    """
+    Passeport pneu (Feature 3) — objet social/viral valorisant la durabilité
+    du pneu actuellement monté (km parcourus avec CE pneu, jours d'usage,
+    0 crevaison signalée). Destiné à être partagé en image depuis l'app.
+    """
+    front = _get_tire("front", user.id, db)
+    rear = _get_tire("rear", user.id, db)
+    total_km_now = _current_km(user.id, db)
+
+    def build(tire: models.Tire) -> schemas.PassportCardOut:
+        km = passport.km_on_tire(total_km_now, tire.installed_km)
+        days = passport.days_since_installed(tire.installed_date)
+        card = passport.build_passport(tire.name, km, days)
+        return schemas.PassportCardOut(wheel=tire.wheel, **card)
+
+    return schemas.PassportOut(front=build(front), rear=build(rear))
 
 
 @router.get("/{wheel}", response_model=schemas.TireOut)

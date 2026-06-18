@@ -168,6 +168,96 @@ def get_coach_tips(db: Session = Depends(get_db), user: models.User = Depends(ge
             )
         )
 
+    # ── 5. Sécurité pluie — exposition réelle + argument compound grip ──────
+    # On relie l'argument "gomme grip pluie" à un scénario concret (part de
+    # sorties sous la pluie réellement enregistrées), pas à une affirmation
+    # abstraite.
+    wet_ratio = profile["wet_ratio"]
+    if wet_ratio >= recommend.WET_RATIO_THRESHOLD:
+        wet_rides_count = sum(1 for r in rides if r.weather == "wet")
+        wet_tire = next(
+            (c for c in catalog if c.terrain_tags and "wet" in c.terrain_tags and c.protection_level in ("medium", "high")),
+            None,
+        )
+        wet_pct = round(wet_ratio * 100)
+        tips.append(
+            schemas.CoachTipOut(
+                id="safety-wet-grip",
+                severity="warning" if wet_pct >= 50 else "info",
+                title="Sécurité pluie : votre exposition est élevée",
+                message=(
+                    f"{wet_pct}% de vos {len(rides)} dernières sorties se sont faites sous la pluie "
+                    f"({wet_rides_count} sortie{'s' if wet_rides_count > 1 else ''}). "
+                    + (
+                        f"Le compound grip humide du {wet_tire.name} réduit la distance de freinage et le "
+                        f"risque de glissade en virage mouillé."
+                        if wet_tire
+                        else "Une gomme à grip renforcé en conditions humides réduit le risque de glissade en virage."
+                    )
+                ),
+                cta_label="Voir le pneu adapté" if wet_tire else None,
+                cta_catalog_id=wet_tire.id if wet_tire else None,
+            )
+        )
+
+    # ── 6. Sécurité crevaison hors-route (gravel/VTT) ───────────────────────
+    total_km = sum(r.distance_km for r in rides) or 1.0
+    offroad_km = sum(r.distance_km for r in rides if r.surface_type in ("gravel", "mixed", "mtb_trail"))
+    offroad_ratio = offroad_km / total_km
+    if offroad_ratio >= 0.25 and (not rear_catalog or rear_catalog.protection_level != "high"):
+        protection_tire = next(
+            (c for c in catalog if c.protection_level == "high" and c.type in ("Gravel", "VTT")),
+            None,
+        )
+        tips.append(
+            schemas.CoachTipOut(
+                id="safety-puncture-offroad",
+                severity="warning",
+                title="Risque de crevaison hors-route",
+                message=(
+                    f"{round(offroad_ratio * 100)}% de votre kilométrage récent se fait sur gravel, chemins ou "
+                    f"sentiers. "
+                    + (
+                        f"La carcasse anti-crevaison du {protection_tire.name} limite les crevaisons par "
+                        f"pincement et coupures sur ce type de terrain."
+                        if protection_tire
+                        else "Une carcasse renforcée limite les crevaisons par pincement sur ce type de terrain."
+                    )
+                ),
+                cta_label="Voir le pneu adapté" if protection_tire else None,
+                cta_catalog_id=protection_tire.id if protection_tire else None,
+            )
+        )
+
+    # ── 7. Sécurité en descente — carcasse anti-crevaison à haute vitesse ──
+    # S'appuie sur la même sortie la plus pentue que l'analyse de descente
+    # (#0), mais avec un angle sécurité (résistance de la carcasse) plutôt
+    # que performance.
+    if candidates:
+        steepest = candidates[0]
+        gradient = (steepest.elevation_gain or 0) / steepest.distance_km
+        if gradient >= 15:
+            protection_tire = next((c for c in catalog if c.protection_level == "high"), None)
+            tips.append(
+                schemas.CoachTipOut(
+                    id="safety-descent-casing",
+                    severity="info",
+                    title=f"Descentes exigeantes — {steepest.name}",
+                    message=(
+                        f"Votre sortie la plus pentue ({round(gradient)} m/km de dénivelé) sollicite fortement "
+                        f"la carcasse en descente et au freinage. "
+                        + (
+                            f"La carcasse renforcée du {protection_tire.name} réduit le risque de crevaison par "
+                            f"pincement sur les irrégularités de la route à haute vitesse."
+                            if protection_tire
+                            else "Une carcasse renforcée réduit le risque de crevaison par pincement à haute vitesse."
+                        )
+                    ),
+                    cta_label="Voir le pneu adapté" if protection_tire else None,
+                    cta_catalog_id=protection_tire.id if protection_tire else None,
+                )
+            )
+
     if not tips:
         tips.append(
             schemas.CoachTipOut(
@@ -178,4 +268,4 @@ def get_coach_tips(db: Session = Depends(get_db), user: models.User = Depends(ge
             )
         )
 
-    return schemas.CoachTipsOut(tips=tips[:5])
+    return schemas.CoachTipsOut(tips=tips[:8])

@@ -102,6 +102,11 @@ export const recommendations: RecommendationsOut = {
 		match_reason: 'Ideal for your road profile',
 		discount_pct: 0,
 		discount_code: '',
+		rolling_resistance_current: 12.5,
+		rolling_resistance_recommended: 10.8,
+		rolling_resistance_delta_pct: 13.6,
+		typical_ride_km: 45,
+		minutes_gained: 1.2,
 	},
 	rear: {
 		wheel: 'rear',
@@ -111,6 +116,11 @@ export const recommendations: RecommendationsOut = {
 		match_reason: 'Best match for your recent rides',
 		discount_pct: 10,
 		discount_code: 'RACELAB10',
+		rolling_resistance_current: 14.2,
+		rolling_resistance_recommended: 10.8,
+		rolling_resistance_delta_pct: 23.9,
+		typical_ride_km: 45,
+		minutes_gained: 2.1,
 	},
 };
 

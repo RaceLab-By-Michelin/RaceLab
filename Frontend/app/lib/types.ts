@@ -4,7 +4,7 @@ export type Screen =
 	| 'profile'
 	| 'tires'
 	| 'settings'
-	| 'partners'
+	| 'legends'
 	| 'coach'
 	| 'strava-clubs';
 

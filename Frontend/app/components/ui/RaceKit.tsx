@@ -187,8 +187,10 @@ export function WearDial({ wear, label, size = 180 }: { wear: number; label: str
 					const x2 = r3(center + outer * Math.cos(rad));
 					const y2 = r3(center + outer * Math.sin(rad));
 					const isFilled = i < filled;
-					const isCritical = wear >= 70 && isFilled && i >= filled - 6;
-					const stroke = isCritical ? COLORS.danger : isFilled ? COLORS.yellow : COLORS.gray10;
+					// Uniquement des teintes positives (pas de rouge/jaune/orange) : bleu Michelin
+					// en dessous de 80%, vert "objectif atteint" au-delà.
+					const filledColor = wear >= 80 ? COLORS.success : COLORS.blue;
+					const stroke = isFilled ? filledColor : COLORS.gray10;
 					return (
 						<line
 							key={i}

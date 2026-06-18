@@ -40,7 +40,6 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 						background: navBg,
 						backdropFilter: 'blur(16px) saturate(140%)',
 						WebkitBackdropFilter: 'blur(16px) saturate(140%)',
-						boxShadow: `0 -2px 12px rgba(0,32,91,0.04)`,
 					}}
 				>
 					{NAV_ITEMS.map((item) => {
@@ -57,7 +56,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 									className="flex h-8 w-8 items-center justify-center rounded-xl transition-all"
 									style={
 										active
-											? { background: COLORS.yellow, boxShadow: `0 0 0 6px ${COLORS.glowYellow}` }
+											? { background: COLORS.yellow }
 											: { background: 'transparent' }
 									}
 								>

@@ -3,7 +3,5 @@ __pycache__
 *.pyo
 *.pyd
 .env
-mbt.db
-mbt.db-journal
 .git
 *.md

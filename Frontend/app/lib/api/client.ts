@@ -42,17 +42,27 @@ api.interceptors.request.use((config) => {
 	return config;
 });
 
-// Intercepteur de réponse — remonte les erreurs HTTP lisibles
+// Intercepteur de réponse — remonte les erreurs HTTP lisibles.
+// 401 est un cas attendu (jeton absent/expiré/invalidé côté serveur — ex:
+// après un reset de la base) : AuthProvider le gère déjà en redirigeant vers
+// /login, donc on évite le bruit console.error pour ce cas précis.
 api.interceptors.response.use(
-	(response) => response,
-	(error) => {
-		if (axios.isAxiosError(error)) {
-			const status = error.response?.status ?? 0;
-			const detail = (error.response?.data as { detail?: string })?.detail ?? error.message;
-			console.error(`[API] ${status} — ${detail}`);
-		}
-		return Promise.reject(error);
-	},
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status ?? 0;
+      const detail =
+        (error.response?.data as { detail?: string })?.detail ??
+        error.message;
+      if (status === 401) {
+        clearAuthToken();
+        console.warn(`[API] 401 — session invalide ou expirée, jeton local effacé`);
+      } else {
+        console.error(`[API] ${status} — ${detail}`);
+      }
+    }
+    return Promise.reject(error);
+  }
 );
 
 export default api;

@@ -133,6 +133,16 @@ export interface TireCatalogOut {
 	max_pressure: string;
 	weight: string;
 	tag: string | null;
+	// Gamme premium — absentes sur les entrées historiques du catalogue
+	discipline?: string[] | null;
+	sub_family?: string[] | null;
+	tubeless?: boolean | null;
+	casing?: string | null;
+	compound?: string | null;
+	protection_level?: string | null;
+	riding_priority?: string | null;
+	terrain_tags?: string[] | null;
+	e_bike_compatible?: boolean | null;
 }
 
 // ─── Recommandation pneu + réduction personnalisée ───────────────────────────
@@ -145,11 +155,33 @@ export interface TireRecommendationOut {
 	match_reason: string;
 	discount_pct: number;
 	discount_code: string;
+	// Bénéfices tangibles (estimés) — vendre la performance, pas le prix
+	rolling_resistance_current: number;
+	rolling_resistance_recommended: number;
+	rolling_resistance_delta_pct: number;
+	typical_ride_km: number;
+	minutes_gained: number;
 }
 
 export interface RecommendationsOut {
 	front: TireRecommendationOut;
 	rear: TireRecommendationOut;
+}
+
+// ─── Passeport pneu partageable ──────────────────────────────────────────────
+
+export interface PassportCardOut {
+	wheel: WheelPosition;
+	tire_name: string;
+	km_on_tire: number;
+	days_installed: number;
+	milestone_km: number | null;
+	headline: string;
+}
+
+export interface PassportOut {
+	front: PassportCardOut;
+	rear: PassportCardOut;
 }
 
 // ─── Wear history ─────────────────────────────────────────────────────────────
@@ -253,6 +285,46 @@ export interface EventDetailOut extends EventOut {
 	leaderboard: EventLeaderboardEntry[];
 }
 
+// ─── Défi personnalisé ("Pneu pour toi") ──────────────────────────────────
+
+export type PersonalChallengeStatus = 'active' | 'pending_feedback' | 'completed';
+
+export interface PersonalChallengeOut {
+	id: number;
+	title: string;
+	description: string;
+	discipline: string;
+	target_km: number;
+	status: PersonalChallengeStatus;
+	created_at: string;
+	completed_at: string | null;
+	adherence_rating: number | null;
+	comfort_rating: number | null;
+	speed_rating: number | null;
+	feedback_comment: string | null;
+	reward_discount_pct: number | null;
+	reward_discount_code: string | null;
+	// Giveaway pneu mérité — alternative à la réduction
+	reward_type: 'discount' | 'giveaway';
+	reward_giveaway_tire_catalog_id: string | null;
+	reward_giveaway_tire_name: string | null;
+	reward_giveaway_status: string | null;
+}
+
+export interface PersonalChallengeStatusOut {
+	challenge: PersonalChallengeOut;
+	completed_count: number;
+	next_reward_pct: number;
+	giveaway_tier_reached: boolean;
+}
+
+export interface PersonalChallengeFeedbackIn {
+	adherence_rating: number;
+	comfort_rating: number;
+	speed_rating: number;
+	comment?: string | null;
+}
+
 // ─── Michelin Lab (tirages au sort) ───────────────────────────────────────────
 
 export interface TireTrialOut {
@@ -270,6 +342,25 @@ export interface TireTrialOut {
 	entries_count: number;
 	entered: boolean;
 	won: boolean;
+}
+
+// ─── Retailer B2B (dashboard revendeur) ──────────────────────────────────────
+
+export interface RetailerZoneOut {
+	city: string;
+	rider_count: number;
+	dominant_practice: string;
+	dominant_practice_share_pct: number;
+	practice_breakdown: Record<string, number>;
+	tires_near_end_of_life: number;
+	tires_near_end_of_life_pct: number;
+}
+
+export interface RetailerDashboardOut {
+	zones: RetailerZoneOut[];
+	total_riders: number;
+	weeks_horizon: number;
+	generated_note: string;
 }
 
 // ─── Coach ───────────────────────────────────────────────────────────────────

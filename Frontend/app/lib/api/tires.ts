@@ -6,6 +6,7 @@ import type {
 	WearHistoryOut,
 	WheelPosition,
 	RecommendationsOut,
+	PassportOut,
 } from './types';
 
 import api from './client';
@@ -48,4 +49,11 @@ export const tiresApi = {
 	 */
 	getRecommendations: (): Promise<RecommendationsOut> =>
 		api.get<RecommendationsOut>('/tires/recommendations').then((r) => r.data),
+
+	/**
+	 * GET /tires/passport
+	 * Passeport pneu partageable (Feature 3) — km parcourus avec le pneu
+	 * actuel, jours d'usage, 0 crevaison signalée.
+	 */
+	getPassport: (): Promise<PassportOut> => api.get<PassportOut>('/tires/passport').then((r) => r.data),
 };

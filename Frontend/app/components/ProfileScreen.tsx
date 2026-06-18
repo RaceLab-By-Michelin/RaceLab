@@ -9,6 +9,7 @@ import type { UserOut, StatsOut, RideOut, BikeOut } from '@/app/lib/api';
 import { COLORS, FONTS } from '@/app/lib/constants';
 
 import { AppHeader } from './ui/AppHeader';
+import { PassportSection } from './PassportCard';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -599,6 +600,7 @@ export function ProfileScreen() {
 						<ProfileHero user={user} onUpdateUser={handleUpdateUser} />
 						<StatsGrid stats={stats} />
 						<BikeCard user={user} onUpdateBike={handleUpdateBike} />
+						<PassportSection />
 						<RecentRides rides={rides} />
 					</>
 				)}

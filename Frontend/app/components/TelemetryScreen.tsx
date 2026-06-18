@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 
-import { ChevronRight, Bike, Trophy, CheckCircle, AlertCircle } from 'lucide-react';
+import { ChevronRight, Bike, Trophy, CheckCircle, Sparkles, Star, Gift, Send, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-import { userApi, tiresApi } from '@/app/lib/api';
-import type { StatsOut, TireSetOut, RecommendationsOut } from '@/app/lib/api';
-import { COLORS, FONTS, getTireAlert } from '@/app/lib/constants';
+import { userApi, tiresApi, personalChallengesApi } from '@/app/lib/api';
+import type { StatsOut, TireSetOut, PersonalChallengeStatusOut } from '@/app/lib/api';
+import { COLORS, FONTS } from '@/app/lib/constants';
 
 import { AppHeader } from './ui/AppHeader';
 import { Panel, Badge, MeterBar, WearDial } from './ui/RaceKit';
@@ -56,7 +56,7 @@ function KmHero({ stats, tires }: { stats: StatsOut | null; tires: TireSetOut | 
 					<MetricPill
 						icon={<Bike size={12} color={COLORS.yellow} />}
 						value={front!.name}
-						label={`Monté le ${fmtDate(front!.installed_date)}`}
+						label={`Montés le ${fmtDate(front!.installed_date)}`}
 					/>
 				) : front && rear ? (
 					/* Pneus différents → deux pills */
@@ -101,7 +101,7 @@ function TireCard({ animated, stats }: { animated: boolean; stats: StatsOut | nu
 					className="text-[10px] font-bold uppercase"
 					style={{ color: COLORS.gray50, fontFamily: FONTS.mono, letterSpacing: '0.25em' }}
 				>
-					Instrumentation Usure Pneus
+					Performance totale de vos pneus
 				</span>
 			</div>
 
@@ -128,12 +128,6 @@ function deriveEfficiency(wear: number): number {
 	return Math.max(0, Math.round(100 - wear * 0.22));
 }
 
-function wearNote(wear: number): string {
-	if (wear >= 75) return 'Dégradation du composé détectée';
-	if (wear >= 45) return 'Usure modérée — dans la norme';
-	return 'État optimal — marge confortable';
-}
-
 function ComparisonMatrix({ stats }: { stats: StatsOut | null }) {
 	const frontWear = stats?.front_wear ?? 0;
 	const rearWear = stats?.rear_wear ?? 0;
@@ -145,7 +139,6 @@ function ComparisonMatrix({ stats }: { stats: StatsOut | null }) {
 		...t,
 		grip: deriveGrip(t.wear),
 		efficiency: deriveEfficiency(t.wear),
-		note: wearNote(t.wear),
 	}));
 
 	return (
@@ -159,14 +152,8 @@ function ComparisonMatrix({ stats }: { stats: StatsOut | null }) {
 								<h3 className="text-[13px] font-bold" style={{ color: COLORS.heading, fontFamily: FONTS.title }}>
 									{tire.position}
 								</h3>
-								<span
-									className="text-[9px] tracking-wider uppercase"
-									style={{ color: COLORS.gray40, fontFamily: FONTS.mono }}
-								>
-									Pneu
-								</span>
 							</div>
-							<Badge tone={wearTone}>{tire.wear}% Usure</Badge>
+							<Badge tone={wearTone}>{tire.wear}% Utilisation</Badge>
 						</div>
 
 						<div className="mt-4 flex flex-col gap-4">
@@ -192,12 +179,6 @@ function ComparisonMatrix({ stats }: { stats: StatsOut | null }) {
 								</div>
 								<MeterBar value={tire.efficiency} tone={tire.efficiency >= 95 ? 'success' : 'gold'} />
 							</div>
-							<p
-								className="pt-3 text-[10px]"
-								style={{ borderTop: `1px solid ${COLORS.gray10}`, color: COLORS.gray50, fontFamily: FONTS.body }}
-							>
-								{tire.note}
-							</p>
 						</div>
 					</Panel>
 				);
@@ -206,119 +187,368 @@ function ComparisonMatrix({ stats }: { stats: StatsOut | null }) {
 	);
 }
 
-function TireAlert({ onNavigate, stats }: { onNavigate: (s: string) => void; stats: StatsOut | null }) {
-	const frontWear = stats?.front_wear ?? 0;
-	const rearWear = stats?.rear_wear ?? 0;
-	const adherencePct = stats?.adherence_pct ?? 100;
-	const alert = getTireAlert(frontWear, rearWear, adherencePct);
-	const [reco, setReco] = useState<RecommendationsOut | null>(null);
+// ─── "Pneu pour toi" — défi personnel unique ─────────────────────────────────
+// Un seul défi à la fois, généré pour CET utilisateur précis (jamais partagé) —
+// on insiste visuellement sur le caractère personnel. Après réalisation, un
+// questionnaire ciblé pneus débloque une réduction dont le palier augmente
+// avec le nombre de défis déjà complétés.
+
+function StarRating({ value, onChange, label }: { value: number; onChange: (v: number) => void; label: string }) {
+	return (
+		<div className="flex items-center justify-between gap-3">
+			<span className="text-[11px] font-semibold" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
+				{label}
+			</span>
+			<div className="flex gap-1">
+				{[1, 2, 3, 4, 5].map((n) => (
+					<button
+						key={n}
+						type="button"
+						onClick={() => onChange(n)}
+						className="transition-transform hover:scale-110"
+						aria-label={`${label} : ${n}/5`}
+					>
+						<Star size={18} fill={n <= value ? COLORS.yellow : 'none'} color={n <= value ? COLORS.yellow : COLORS.gray40} />
+					</button>
+				))}
+			</div>
+		</div>
+	);
+}
+
+function PersonalChallengeCard() {
+	const [status, setStatus] = useState<PersonalChallengeStatusOut | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [working, setWorking] = useState(false);
+	const [reward, setReward] = useState<{
+		type: 'discount' | 'giveaway';
+		pct: number;
+		code: string;
+		tireName: string | null;
+	} | null>(null);
+	const [ratings, setRatings] = useState({ adherence: 0, comfort: 0, speed: 0 });
+	const [comment, setComment] = useState('');
+
+	const fetchCurrent = () => {
+		setLoading(true);
+		personalChallengesApi
+			.getCurrent()
+			.then(setStatus)
+			.catch(console.error)
+			.finally(() => setLoading(false));
+	};
 
 	useEffect(() => {
-		// L'offre/réduction n'a de sens que si le cycliste use déjà ses pneus —
-		// pas avant la première sortie ("start") ni quand tout va bien ("ok").
-		if (alert.severity !== 'critical' && alert.severity !== 'warning') return;
-		tiresApi.getRecommendations().then(setReco).catch(console.error);
-	}, [alert.severity]);
+		fetchCurrent();
+	}, []);
 
-	const worstWheel: 'front' | 'rear' = frontWear >= rearWear ? 'front' : 'rear';
-	const offer = reco ? reco[worstWheel] : null;
+	if (loading) {
+		return (
+			<div className="mx-5 mb-4 flex h-32 items-center justify-center rounded-2xl" style={{ background: COLORS.gray05 }}>
+				<div
+					className="h-6 w-6 animate-spin rounded-full border-2"
+					style={{ borderColor: COLORS.blue, borderTopColor: 'transparent' }}
+				/>
+			</div>
+		);
+	}
+	if (!status) return null;
 
-	const styles = {
-		start: {
-			border: COLORS.start,
-			iconBg: COLORS.startLight,
-			icon: <Bike size={18} color={COLORS.start} />,
-			titleColor: COLORS.start,
-		},
-		critical: {
-			border: COLORS.achieved,
-			iconBg: COLORS.achievedLight,
-			icon: <Trophy size={18} color={COLORS.achieved} />,
-			titleColor: COLORS.achieved,
-		},
-		warning: {
-			border: 'rgba(255,184,0,0.35)',
-			iconBg: 'rgba(255,184,0,0.12)',
-			icon: <AlertCircle size={18} color={COLORS.warning} />,
-			titleColor: '#FFD79A',
-		},
-		ok: {
-			border: COLORS.successDark,
-			iconBg: 'rgba(52,211,153,0.12)',
-			icon: <CheckCircle size={18} color={COLORS.success} />,
-			titleColor: COLORS.success,
-		},
-	}[alert.severity];
+	const challenge = status.challenge;
+	const ratingsComplete = ratings.adherence > 0 && ratings.comfort > 0 && ratings.speed > 0;
+
+	async function handleComplete() {
+		setWorking(true);
+		try {
+			await personalChallengesApi.complete(challenge.id);
+			setStatus({ ...status!, challenge: { ...challenge, status: 'pending_feedback' } });
+		} catch {
+			// silently — l'utilisateur peut réessayer
+		} finally {
+			setWorking(false);
+		}
+	}
+
+	async function handleSubmitFeedback() {
+		if (!ratingsComplete) return;
+		setWorking(true);
+		try {
+			const updated = await personalChallengesApi.submitFeedback(challenge.id, {
+				adherence_rating: ratings.adherence,
+				comfort_rating: ratings.comfort,
+				speed_rating: ratings.speed,
+				comment: comment.trim() || undefined,
+			});
+			setReward({
+				type: updated.reward_type,
+				pct: updated.reward_discount_pct ?? 0,
+				code: updated.reward_discount_code ?? '',
+				tireName: updated.reward_giveaway_tire_name ?? null,
+			});
+		} catch {
+			// silently
+		} finally {
+			setWorking(false);
+		}
+	}
+
+	function handleNextChallenge() {
+		setReward(null);
+		setRatings({ adherence: 0, comfort: 0, speed: 0 });
+		setComment('');
+		fetchCurrent();
+	}
+
+	// ── Récompense débloquée — affichée juste après l'envoi du questionnaire ──
+	if (reward) {
+		return (
+			<div
+				className="speed-pop-in mx-5 mb-4 overflow-hidden rounded-2xl p-5 text-center"
+				style={{ background: `linear-gradient(135deg, ${COLORS.successDark} 0%, #14532D 100%)` }}
+			>
+				<div
+					className="speed-pulse mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full"
+					style={{ background: COLORS.yellow }}
+				>
+					<Gift size={22} color={COLORS.onGold} />
+				</div>
+				<div className="text-[13px] font-black tracking-wide uppercase" style={{ color: 'white', fontFamily: FONTS.title }}>
+					{reward.type === 'giveaway' ? 'Pneu mérité !' : 'Merci pour ton retour !'}
+				</div>
+				<p className="mt-1 text-[11px]" style={{ color: 'rgba(255,255,255,0.85)', fontFamily: FONTS.body }}>
+					{reward.type === 'giveaway'
+						? `Ton assiduité et ce défi dépassé t'offrent un ${reward.tireName ?? 'pneu Michelin'} — sans tirage au sort, juste mérité.`
+						: 'Tu débloques une réduction sur ton prochain pneu Michelin.'}
+				</p>
+				{reward.type === 'giveaway' ? (
+					<div className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2" style={{ background: COLORS.yellow }}>
+						<Gift size={14} color={COLORS.onGold} />
+						<span className="text-[12px] font-black" style={{ color: COLORS.onGold, fontFamily: FONTS.mono }}>
+							{reward.tireName ?? 'Pneu offert'}
+						</span>
+					</div>
+				) : (
+					reward.pct > 0 && (
+						<div className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2" style={{ background: COLORS.yellow }}>
+							<span className="text-[14px] font-black" style={{ color: COLORS.onGold, fontFamily: FONTS.mono }}>
+								-{reward.pct}%
+							</span>
+							<span className="text-[11px] font-bold" style={{ color: COLORS.onGold, fontFamily: FONTS.mono }}>
+								{reward.code}
+							</span>
+						</div>
+					)
+				)}
+				<button
+					onClick={handleNextChallenge}
+					className="mt-4 w-full rounded-xl py-2.5 text-[11px] font-bold tracking-wider uppercase transition-all hover:opacity-90"
+					style={{ background: 'rgba(255,255,255,0.12)', color: 'white', fontFamily: FONTS.title }}
+				>
+					Découvrir mon prochain défi
+				</button>
+			</div>
+		);
+	}
 
 	return (
-		<div
-			className="mx-5 mb-4 rounded-2xl p-4"
-			style={{
-				background: 'rgba(23,26,40,0.88)',
-				backdropFilter: 'blur(14px) saturate(140%)',
-				WebkitBackdropFilter: 'blur(14px) saturate(140%)',
-				border: `1px solid ${styles.border}`,
-				boxShadow: `0 8px 20px ${styles.border}25, 0 1px 0 rgba(255,255,255,0.06) inset`,
-			}}
-		>
-			<div className="flex gap-3">
-				<div
-					className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
-					style={{ background: styles.iconBg }}
-				>
-					{styles.icon}
-				</div>
-				<div className="flex-1">
-					<p
-						className="mb-1 text-[10px] font-black tracking-widest uppercase"
-						style={{ color: styles.titleColor, fontFamily: FONTS.title }}
-					>
-						{alert.title}
-					</p>
-					<p className="text-[12px] leading-relaxed" style={{ color: COLORS.grayDark, fontFamily: FONTS.body }}>
-						{alert.message}
-					</p>
-
-					{offer && offer.discount_pct > 0 && (
-						<div className="mt-2 flex flex-wrap items-center gap-2">
-							<span
-								className="rounded-full px-2 py-0.5 text-[11px] font-black"
-								style={{ background: COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.mono }}
-							>
-								-{offer.discount_pct}%
-							</span>
-							{offer.recommended && (
-								<span className="text-[11px] font-semibold" style={{ color: COLORS.blue, fontFamily: FONTS.body }}>
-									sur {offer.recommended.name}
-								</span>
-							)}
-						</div>
-					)}
-				</div>
+		<Panel className="mx-5 mb-4 overflow-hidden p-5" borderColor="rgba(255,200,0,0.3)">
+			<div className="mb-3 flex items-center justify-between">
+				<Badge tone="gold">
+					<Sparkles size={11} />
+					Juste pour toi
+				</Badge>
+				{status.completed_count > 0 && (
+					<span className="text-[10px] font-semibold" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+						{status.completed_count} défi{status.completed_count > 1 ? 's' : ''} relevé
+						{status.completed_count > 1 ? 's' : ''}
+					</span>
+				)}
 			</div>
 
-			{alert.severity === 'start' && (
-				<button
-					onClick={() => onNavigate('challenges')}
-					className="mt-3 flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-[12px] font-bold tracking-wider uppercase transition-all hover:opacity-90 active:scale-[0.98]"
-					style={{ background: COLORS.start, color: COLORS.white, fontFamily: FONTS.title, letterSpacing: '0.1em' }}
-				>
-					Découvrir les défis
-					<ChevronRight size={14} />
-				</button>
+			{challenge.status === 'active' && (
+				<>
+					<h3 className="text-[16px] font-black break-words" style={{ color: COLORS.heading, fontFamily: FONTS.title }}>
+						{challenge.title}
+					</h3>
+					<p className="mt-1.5 text-[12px] leading-relaxed break-words" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+						{challenge.description}
+					</p>
+
+					<div
+						className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2.5"
+						style={{ background: 'rgba(255,200,0,0.08)', border: '1px solid rgba(255,200,0,0.2)' }}
+					>
+						<Gift size={14} color={COLORS.yellow} className="flex-shrink-0" />
+						<span className="text-[11px] font-semibold" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
+							{status.giveaway_tier_reached ? (
+								<>
+									Dépasse cet objectif et un <strong>pneu Michelin t&apos;est offert</strong> — mérité, pas tiré au sort
+								</>
+							) : (
+								<>
+									Termine-le pour débloquer jusqu&apos;à <strong>-{status.next_reward_pct}%</strong> sur ton prochain pneu
+								</>
+							)}
+						</span>
+					</div>
+
+					<button
+						onClick={handleComplete}
+						disabled={working}
+						className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[12px] font-bold tracking-wider uppercase transition-all hover:opacity-90"
+						style={{ background: COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.title }}
+					>
+						{working ? (
+							<div
+								className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
+								style={{ borderColor: COLORS.onGold, borderTopColor: 'transparent' }}
+							/>
+						) : (
+							<CheckCircle size={14} />
+						)}
+						J&apos;ai terminé mon défi
+					</button>
+				</>
 			)}
 
-			{(alert.severity === 'critical' || alert.severity === 'warning') && (
-				<button
-					onClick={() => onNavigate('tires')}
-					className="mt-3 flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-[12px] font-bold tracking-wider uppercase transition-all hover:opacity-90 active:scale-[0.98]"
-					style={{ background: COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.title, letterSpacing: '0.1em' }}
-				>
-					{offer && offer.discount_pct > 0 ? `Profiter de -${offer.discount_pct}%` : 'Voir les pneus recommandés'}
-					<ChevronRight size={14} />
-				</button>
+			{challenge.status === 'pending_feedback' && (
+				<>
+					<h3 className="text-[14px] font-black break-words" style={{ color: COLORS.heading, fontFamily: FONTS.title }}>
+						Bravo ! Quelques mots sur tes pneus ?
+					</h3>
+					<p className="mt-1 text-[11px] break-words" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+						Ton retour débloque ta récompense.
+					</p>
+
+					<div className="mt-4 flex flex-col gap-3">
+						<StarRating label="Adhérence" value={ratings.adherence} onChange={(v) => setRatings((r) => ({ ...r, adherence: v }))} />
+						<StarRating label="Confort" value={ratings.comfort} onChange={(v) => setRatings((r) => ({ ...r, comfort: v }))} />
+						<StarRating
+							label="Vitesse perçue"
+							value={ratings.speed}
+							onChange={(v) => setRatings((r) => ({ ...r, speed: v }))}
+						/>
+					</div>
+
+					<textarea
+						value={comment}
+						onChange={(e) => setComment(e.target.value)}
+						placeholder="Un commentaire (optionnel)…"
+						rows={2}
+						className="mt-3 w-full resize-none rounded-xl px-3 py-2.5 text-[12px] outline-none"
+						style={{
+							background: COLORS.gray05,
+							border: `1px solid ${COLORS.gray10}`,
+							color: COLORS.heading,
+							fontFamily: FONTS.body,
+						}}
+					/>
+
+					<button
+						onClick={handleSubmitFeedback}
+						disabled={!ratingsComplete || working}
+						className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[12px] font-bold tracking-wider uppercase transition-all hover:opacity-90"
+						style={{
+							background: ratingsComplete ? COLORS.yellow : COLORS.gray10,
+							color: ratingsComplete ? COLORS.onGold : COLORS.gray40,
+							fontFamily: FONTS.title,
+						}}
+					>
+						{working ? (
+							<div
+								className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
+								style={{ borderColor: COLORS.gray40, borderTopColor: 'transparent' }}
+							/>
+						) : (
+							<Send size={13} />
+						)}
+						Envoyer mon retour
+					</button>
+				</>
 			)}
+		</Panel>
+	);
+}
+
+// ─── Bouton header + modale pour le défi personnel ────────────────────────────
+// Affiché uniquement sur la page d'accueil (passé en rightSlot de AppHeader) :
+// ouvre une modale plutôt que d'occuper de la place directement dans la page.
+
+function ChallengeHeaderButton({ onClick }: { onClick: () => void }) {
+	return (
+		<button
+			onClick={onClick}
+			aria-label="Mon défi personnel"
+			className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80"
+			style={{ background: 'rgba(255,200,0,0.14)', border: '1px solid rgba(255,200,0,0.35)' }}
+		>
+			<Sparkles size={16} color={COLORS.yellow} />
+		</button>
+	);
+}
+
+function ChallengeModal({ onClose }: { onClose: () => void }) {
+	return (
+		<div
+			className="fixed inset-0 z-50 flex items-center justify-center p-4"
+			style={{ background: 'rgba(8,10,18,0.72)' }}
+			onClick={onClose}
+		>
+			<div
+				className="max-h-[85vh] w-full max-w-sm overflow-y-auto"
+				style={{ scrollbarWidth: 'none' }}
+				onClick={(e) => e.stopPropagation()}
+			>
+				<div className="mb-1 flex items-center justify-between px-1">
+					<span
+						className="text-[10px] font-bold tracking-widest uppercase"
+						style={{ color: COLORS.gray50, fontFamily: FONTS.title }}
+					>
+						Mon défi personnel
+					</span>
+					<button
+						onClick={onClose}
+						aria-label="Fermer"
+						className="flex h-8 w-8 items-center justify-center rounded-full transition-opacity hover:opacity-70"
+						style={{ background: 'rgba(255,255,255,0.08)' }}
+					>
+						<X size={16} color={COLORS.gray60} />
+					</button>
+				</div>
+				<PersonalChallengeCard />
+			</div>
 		</div>
+	);
+}
+
+function LegendsLink({ onNavigate }: { onNavigate: (s: string) => void }) {
+	return (
+		<Panel className="mx-5 mb-4 p-0 overflow-hidden">
+			<button
+				onClick={() => onNavigate('legends')}
+				className="speed-pop-in relative flex w-full items-center gap-3 px-4 py-4 text-left transition-all hover:opacity-90"
+				style={{ background: `linear-gradient(120deg, ${COLORS.blueDark} 0%, ${COLORS.blueDark02} 100%)` }}
+			>
+				<div
+					className="speed-pulse flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl"
+					style={{ background: COLORS.yellow }}
+				>
+					<Trophy size={18} color={COLORS.onGold} />
+				</div>
+				<div className="min-w-0 flex-1">
+					<div
+						className="text-[12px] font-black tracking-wide break-words uppercase"
+						style={{ color: COLORS.heading, fontFamily: FONTS.title }}
+					>
+						Ils ont choisi Michelin, et ça leur réussit !
+					</div>
+					<div className="mt-0.5 text-[10px] break-words" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+						Romain Bardet, Team Picnic PostNL, MotoGP... découvrez les champions Michelin
+					</div>
+				</div>
+				<ChevronRight size={16} color={COLORS.blue} className="flex-shrink-0" />
+			</button>
+		</Panel>
 	);
 }
 
@@ -330,6 +560,7 @@ export function TelemetryScreen() {
 	const [stats, setStats] = useState<StatsOut | null>(null);
 	const [tires, setTires] = useState<TireSetOut | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [challengeOpen, setChallengeOpen] = useState(false);
 	const onNavigate = (screen: string) => router.push(`/${screen}`);
 
 	useEffect(() => {
@@ -349,9 +580,9 @@ export function TelemetryScreen() {
 
 	return (
 		<div className="flex h-full flex-col" style={{ background: COLORS.bgGradient, scrollbarWidth: 'none' }}>
-			<AppHeader onPartnersClick={() => onNavigate('partners')} />
+			<AppHeader rightSlot={<ChallengeHeaderButton onClick={() => setChallengeOpen(true)} />} />
 
-			<div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+			<div className="flex-1 overflow-x-hidden overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
 				<div className="px-5 pt-5 pb-4">
 					<p
 						className="mb-0.5 text-[10px] tracking-widest uppercase"
@@ -369,7 +600,7 @@ export function TelemetryScreen() {
 							color: COLORS.blue,
 						}}
 					>
-						Usure Prédictive
+						Suivi d'utilisation
 					</h1>
 				</div>
 
@@ -385,10 +616,12 @@ export function TelemetryScreen() {
 						<KmHero stats={stats} tires={tires} />
 						<TireCard animated={animated} stats={stats} />
 						<ComparisonMatrix stats={stats} />
-						<TireAlert onNavigate={onNavigate} stats={stats} />
+						<LegendsLink onNavigate={onNavigate} />
 					</>
 				)}
 			</div>
+
+			{challengeOpen && <ChallengeModal onClose={() => setChallengeOpen(false)} />}
 		</div>
 	);
 }

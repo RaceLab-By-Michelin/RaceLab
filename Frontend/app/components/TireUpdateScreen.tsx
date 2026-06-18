@@ -16,9 +16,10 @@ import {
 	ShieldCheck,
 	Check,
 	CircleDot,
+	Zap,
 } from 'lucide-react';
 
-import { tiresApi } from '@/app/lib/api';
+import { tiresApi, userApi } from '@/app/lib/api';
 import type {
 	TireSetOut,
 	TireOut,
@@ -29,8 +30,6 @@ import type {
 } from '@/app/lib/api';
 import { COLORS, FONTS } from '@/app/lib/constants';
 
-import { AppFooter } from './ui/AppFooter';
-import { AppHeader } from './ui/AppHeader';
 import { Panel, SectionLabel, Badge } from './ui/RaceKit';
 
 // ─── Recommended Spec panel ──────────────────────────────────────────────────
@@ -42,19 +41,26 @@ function RecommendedSpecPanel({ offer }: { offer: TireRecommendationOut }) {
 	const tire = offer.recommended;
 	if (!tire) return null;
 
-	const gripDelta = Math.round(offer.current_wear_pct * 0.35);
-	const efficiencyDelta = Math.round(offer.current_wear_pct * 0.22);
-	const speedDelta = (offer.current_wear_pct * 0.012).toFixed(1);
-
-	// Sans usure mesurée (pneu neuf ou tout juste monté), aucun gain réel ne
-	// peut être chiffré — on affiche alors une simple recommandation plutôt
-	// que des deltas à 0.
-	const hasDeltas = gripDelta > 0 || efficiencyDelta > 0 || parseFloat(speedDelta) > 0;
+	// Bénéfices tangibles calculés côté backend à partir du profil de
+	// roulage réel (distance/vitesse moyennes) — on vend la performance
+	// attendue, pas juste un prix.
+	const minutesGained = offer.minutes_gained;
+	const resistanceDeltaPct = offer.rolling_resistance_delta_pct;
+	const hasDeltas = minutesGained > 0 || resistanceDeltaPct > 0;
 
 	const deltas = [
-		{ label: 'Grip', value: `+${gripDelta}`, unit: '%' },
-		{ label: 'Vitesse', value: `+${speedDelta}`, unit: 'km/h' },
-		{ label: 'Efficacité', value: `+${efficiencyDelta}`, unit: '%' },
+		{
+			label: 'Temps gagné',
+			value: minutesGained > 0 ? `+${minutesGained}` : '0',
+			unit: 'min',
+			sub: `sur ${Math.round(offer.typical_ride_km)} km`,
+		},
+		{
+			label: 'Résistance roulement',
+			value: resistanceDeltaPct > 0 ? `-${resistanceDeltaPct}` : '0',
+			unit: '%',
+			sub: 'estimée',
+		},
 	];
 
 	const specs = [
@@ -102,22 +108,25 @@ function RecommendedSpecPanel({ offer }: { offer: TireRecommendationOut }) {
 			</div>
 
 			{hasDeltas ? (
-				<div className="relative mt-5 grid grid-cols-3 gap-2.5">
+				<div className="relative mt-5 grid grid-cols-2 gap-2.5">
 					{deltas.map((d) => (
 						<div
 							key={d.label}
-							className="rounded-xl p-2.5 text-center"
+							className="rounded-xl p-3 text-center"
 							style={{ background: 'rgba(255,200,0,0.06)', border: '1px solid rgba(255,200,0,0.18)' }}
 						>
-							<p className="text-[15px] font-black" style={{ color: COLORS.yellow, fontFamily: FONTS.mono }}>
+							<p className="text-[18px] font-black" style={{ color: COLORS.yellow, fontFamily: FONTS.mono }}>
 								{d.value}
-								<span className="text-[10px]">{d.unit}</span>
+								<span className="text-[11px]">{d.unit}</span>
 							</p>
 							<p
-								className="mt-0.5 text-[8px] tracking-wider uppercase"
+								className="mt-0.5 text-[9px] tracking-wider uppercase"
 								style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}
 							>
 								{d.label}
+							</p>
+							<p className="mt-0.5 text-[9px]" style={{ color: COLORS.gray40, fontFamily: FONTS.body }}>
+								{d.sub}
 							</p>
 						</div>
 					))}
@@ -128,6 +137,12 @@ function RecommendedSpecPanel({ offer }: { offer: TireRecommendationOut }) {
 					style={{ color: COLORS.gray50, fontFamily: FONTS.body }}
 				>
 					Pneu le mieux adapté à votre profil de roulage actuel.
+				</p>
+			)}
+			{hasDeltas && (
+				<p className="relative mt-2 text-[9px] italic" style={{ color: COLORS.gray40, fontFamily: FONTS.body }}>
+					Estimation basée sur votre distance et vitesse moyennes, et les caractéristiques du pneu — pas une
+					mesure en conditions réelles.
 				</p>
 			)}
 
@@ -1080,6 +1095,51 @@ function OtherBrandPanel({
 	);
 }
 
+// ─── Speed boost banner ("Michelin = Vitesse") ──────────────────────────────
+// Affiché spécifiquement à l'installation d'un pneu MICHELIN — renforce
+// l'association Michelin = Vitesse au moment précis où elle a le plus de sens.
+
+function SpeedBoostBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+	return (
+		<div
+			className="speed-pop-in relative mx-5 mb-4 overflow-hidden rounded-2xl p-4"
+			style={{ background: `linear-gradient(120deg, ${COLORS.blueDark} 0%, ${COLORS.blueDark02} 100%)` }}
+		>
+			<div className="pointer-events-none absolute inset-0 overflow-hidden">
+				{[20, 55].map((top, i) => (
+					<div
+						key={top}
+						className="speed-streak"
+						style={{ top: `${top}%`, left: 0, width: '60%', animationDelay: `${i * 0.4}s` }}
+					/>
+				))}
+			</div>
+			<div className="relative flex items-center gap-3">
+				<div
+					className="speed-pulse flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
+					style={{ background: COLORS.yellow }}
+				>
+					<Zap size={18} color={COLORS.onGold} />
+				</div>
+				<div className="flex-1">
+					<div
+						className="text-[11px] font-black tracking-widest uppercase"
+						style={{ color: COLORS.yellow, fontFamily: FONTS.title }}
+					>
+						Michelin = Vitesse
+					</div>
+					<div className="mt-0.5 text-[11px]" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
+						{message}
+					</div>
+				</div>
+				<button onClick={onDismiss} style={{ color: COLORS.gray40 }}>
+					<RotateCcw size={13} />
+				</button>
+			</div>
+		</div>
+	);
+}
+
 // ─── Success banner ──────────────────────────────────────────────────────────
 
 function SuccessBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
@@ -1114,13 +1174,17 @@ export function TireUpdateScreen() {
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [successMsg, setSuccessMsg] = useState<string | null>(null);
+	const [speedBoost, setSpeedBoost] = useState(false);
 
 	useEffect(() => {
-		Promise.all([tiresApi.getTires(), tiresApi.getCatalog(), tiresApi.getRecommendations()])
-			.then(([t, c, r]) => {
+		Promise.all([tiresApi.getTires(), tiresApi.getCatalog(), tiresApi.getRecommendations(), userApi.getStats()])
+			.then(([t, c, r, stats]) => {
 				setTires(t);
 				setCatalog(c);
-				setRecommendations(r);
+				// Sans aucune sortie enregistrée, on n'a pas de profil de pratique
+				// fiable : on évite de proposer un pneu "recommandé" qui ne
+				// reposerait sur rien de réel.
+				setRecommendations(stats.total_rides > 0 ? r : null);
 			})
 			.catch(console.error)
 			.finally(() => setLoading(false));
@@ -1149,6 +1213,7 @@ export function TireUpdateScreen() {
 			]);
 			setTires({ rear: newRear, front: newFront });
 			const label = WHEEL_LABELS[wheel];
+			setSpeedBoost(false);
 			setSuccessMsg(`${label} remplacée${wheel === 'both' ? 's' : ''} par des neufs — compteur remis à zéro.`);
 			setMode('idle');
 		} catch {
@@ -1167,6 +1232,7 @@ export function TireUpdateScreen() {
 				wheel !== 'rear' ? tiresApi.updateTire('front', patch) : Promise.resolve(tires!.front),
 			]);
 			setTires({ rear: newRear, front: newFront });
+			setSpeedBoost(true);
 			setSuccessMsg(
 				`MICHELIN ${tire.name} ${size} installé${wheel === 'both' ? 's sur les deux roues' : ` sur la ${WHEEL_LABELS[wheel].toLowerCase()}`}.`,
 			);
@@ -1187,6 +1253,7 @@ export function TireUpdateScreen() {
 				wheel !== 'rear' ? tiresApi.updateTire('front', patch) : Promise.resolve(tires!.front),
 			]);
 			setTires({ rear: newRear, front: newFront });
+			setSpeedBoost(false);
 			setSuccessMsg(
 				`${name} ${size} enregistré${wheel === 'both' ? 's sur les deux roues' : ` sur la ${WHEEL_LABELS[wheel].toLowerCase()}`} (Autre).`,
 			);
@@ -1260,7 +1327,10 @@ export function TireUpdateScreen() {
 					</div>
 				) : (
 					<>
-						{successMsg && mode === 'idle' && (
+						{successMsg && mode === 'idle' && speedBoost && (
+							<SpeedBoostBanner message={successMsg} onDismiss={() => setSuccessMsg(null)} />
+						)}
+						{successMsg && mode === 'idle' && !speedBoost && (
 							<SuccessBanner message={successMsg} onDismiss={() => setSuccessMsg(null)} />
 						)}
 
