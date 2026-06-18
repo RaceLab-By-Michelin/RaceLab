@@ -1,0 +1,89 @@
+version: "3.9"
+
+# Stack Swarm de production. Aucun `build:` ici : on déploie uniquement les
+# images poussées sur le registry par la CI. Pas de secret en clair dans ce
+# fichier — tout vient de .env (voir .env.example.prod), chargé dans
+# l'environnement shell avant `docker stack deploy` (Swarm ne lit pas
+# automatiquement un fichier .env comme le fait `docker compose`).
+#
+# Déploiement :
+#   set -a && source .env && set +a
+#   docker stack deploy -c docker-compose.prod.yml racelab
+
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────
+  # Une seule base, un seul replica : ce n'est volontairement pas mis à
+  # l'échelle (voir explication scalabilité). Volume local -> épinglé sur le
+  # nœud manager pour que les données restent toujours sur le même disque.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-racelab}
+      POSTGRES_USER: ${POSTGRES_USER:-racelab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - racelab
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: on-failure
+
+  # NB : pas de service "migrate" dans la stack. Avec une image taguée
+  # ":latest" qui ne change pas de nom à chaque déploiement, `docker stack
+  # deploy` ne détecte pas toujours qu'il faut relancer une tâche one-shot
+  # (diff sur la spec textuelle, pas sur le contenu de l'image). La migration
+  # est donc gérée explicitement par deploy.sh, via un `docker run --rm`
+  # exécuté juste après que ce stack soit déployé/à jour (donc après que le
+  # réseau et le service `db` existent) — voir deploy/deploy.sh.
+
+  # ── Backend FastAPI ──────────────────────────────────────────────────────
+  backend:
+    image: ${BACKEND_IMAGE}
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-racelab}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-racelab}
+      STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET}
+      STRAVA_REDIRECT_URI: ${STRAVA_REDIRECT_URI}
+    networks:
+      - racelab
+    ports:
+      - target: 8000
+        published: 8000
+        mode: host
+    deploy:
+      replicas: ${BACKEND_REPLICAS:-2}
+      update_config:
+        order: start-first      # nouvelle tâche démarrée avant d'arrêter l'ancienne -> zéro downtime
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+
+  # ── Frontend Next.js ─────────────────────────────────────────────────────
+  frontend:
+    image: ${FRONTEND_IMAGE}
+    networks:
+      - racelab
+    ports:
+      - target: 3000
+        published: 3000
+        mode: host
+    deploy:
+      replicas: ${FRONTEND_REPLICAS:-2}
+      update_config:
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+
+networks:
+  racelab:
+    driver: overlay
+
+volumes:
+  pg_data:
+    driver: local

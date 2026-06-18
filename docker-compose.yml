@@ -27,6 +27,10 @@ services:
       dockerfile: Dockerfile
     container_name: racelab-backend
     restart: unless-stopped
+    # Le Dockerfile ne lance plus alembic automatiquement (voir Backend/Dockerfile) —
+    # en dev local on n'a qu'un seul conteneur donc pas de risque de migration
+    # concurrente, on peut se permettre de l'enchaîner ici directement.
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
     environment:
