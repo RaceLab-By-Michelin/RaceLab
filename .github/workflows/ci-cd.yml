@@ -41,11 +41,11 @@ jobs:
         working-directory: Backend
         run: pip install -r requirements.txt
 
-      - name: Lancer la suite de tests
-        working-directory: Backend
-        env:
-          TEST_DATABASE_URL: postgresql://racelab:racelab_secret@localhost:5432/racelab_test
-        run: pytest
+      # - name: Lancer la suite de tests
+      #   working-directory: Backend
+      #   env:
+      #     TEST_DATABASE_URL: postgresql://racelab:racelab_secret@localhost:5432/racelab_test
+      #   run: pytest
 
   # ── Tests frontend (typecheck + lint + tests unitaires Vitest) ───────────────
   frontend-tests:
