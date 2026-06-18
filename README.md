@@ -1,4 +1,4 @@
-# RaceLab by Michelin 
+# RaceLab by Michelin !
 
 RaceLab est une application de suivi prédictif de l'usure des pneus vélo, pensée pour les cyclistes Michelin. Elle relie l'activité réelle du cycliste (via Strava) à l'état de ses pneus, et transforme cette donnée en recommandations, défis et offres personnalisées — dans une interface respectant la Charte Digitale Michelin (Mars 2024), disponible en thème sombre et en thème clair.
 
