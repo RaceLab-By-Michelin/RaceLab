@@ -76,6 +76,12 @@
 
 	--logo-bg: transparent;
 
+	/* Accent du bouton "défi personnalisé" de l'AppHeader — jaune satiné, lisible
+	   sur le fond sombre du thème dark. */
+	--challenge-accent: #ffc800;
+	--challenge-accent-bg: rgba(255, 200, 0, 0.14);
+	--challenge-accent-border: rgba(255, 200, 0, 0.35);
+
 	color-scheme: dark;
 }
 
@@ -147,6 +153,13 @@
 	/* Logo RaceLab dessiné pour fond sombre (jaune/blanc) : on lui redonne
 	   son fond noir d'origine en thème clair pour préserver son contraste. */
 	--logo-bg: #000000;
+
+	/* Accent du bouton "défi personnalisé" de l'AppHeader — le jaune Michelin
+	   est trop pâle sur fond clair, on bascule sur le Bleu Michelin pour
+	   garder un bon contraste. */
+	--challenge-accent: #27509b;
+	--challenge-accent-bg: rgba(39, 80, 155, 0.1);
+	--challenge-accent-border: rgba(39, 80, 155, 0.35);
 
 	color-scheme: light;
 }

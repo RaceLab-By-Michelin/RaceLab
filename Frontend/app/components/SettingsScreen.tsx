@@ -12,6 +12,7 @@ import { COLORS, FONTS } from '@/app/lib/constants';
 import { useTheme } from '@/app/lib/dark-mode-context';
 
 import { AppFooter } from './ui/AppFooter';
+import { AppHeader } from './ui/AppHeader';
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
@@ -53,7 +54,6 @@ function ThemeToggleSection() {
 					)
 				}
 				label="Mode clair"
-				description={isLight ? 'Activé — palette Charte Michelin' : 'Désactivé — thème sombre RaceLab'}
 				right={<Switch checked={isLight} onChange={toggleTheme} label="Activer le mode clair" />}
 			/>
 		</div>
@@ -292,6 +292,8 @@ export function SettingsScreen() {
 
 	return (
 		<div className="flex h-full flex-col" style={{ background: COLORS.bgGradient }}>
+			<AppHeader onBack={() => router.push('/profile')} />
+
 			<div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
 				{/* Header */}
 				<div className="px-5 pt-5 pb-4">

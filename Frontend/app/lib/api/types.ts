@@ -26,6 +26,7 @@ export interface UserOut {
 	avatar_url?: string | null;
 	weight_kg: number;
 	height_cm: number;
+	goal_km?: number | null;
 }
 
 export interface UserPatch {
@@ -36,6 +37,7 @@ export interface UserPatch {
 	level_progress?: number;
 	weight_kg?: number;
 	height_cm?: number;
+	goal_km?: number;
 }
 
 export interface BikePatch {

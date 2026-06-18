@@ -1,4 +1,4 @@
-import { BarChart2, Trophy, CircleDot, User, Settings, Sparkles } from 'lucide-react';
+import { BarChart2, Trophy, CircleDot, User, Sparkles } from 'lucide-react';
 
 import type { Screen } from './types';
 
@@ -16,9 +16,4 @@ export const NAV_ITEMS: { id: Screen; icon: (active: boolean) => React.ReactNode
 	{ id: 'coach', icon: (a) => <Sparkles size={16} color={a ? COLORS.blueDark : COLORS.gray40} />, label: 'Coach' },
 	{ id: 'tires', icon: (a) => <CircleDot size={16} color={a ? COLORS.blueDark : COLORS.gray40} />, label: 'Pneus' },
 	{ id: 'profile', icon: (a) => <User size={16} color={a ? COLORS.blueDark : COLORS.gray40} />, label: 'Profil' },
-	{
-		id: 'settings',
-		icon: (a) => <Settings size={16} color={a ? COLORS.blueDark : COLORS.gray40} />,
-		label: 'Réglages',
-	},
 ];

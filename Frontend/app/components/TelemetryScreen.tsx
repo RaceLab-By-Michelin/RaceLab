@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 
-import { ChevronRight, Bike, Trophy, CheckCircle, Sparkles, Star, Gift, Send, X } from 'lucide-react';
+import { ChevronRight, Bike, Trophy, CheckCircle, Sparkles, Star, Gift, Send, X, PartyPopper } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { userApi, tiresApi, personalChallengesApi } from '@/app/lib/api';
-import type { StatsOut, TireSetOut, PersonalChallengeStatusOut } from '@/app/lib/api';
+import type { StatsOut, TireSetOut, PersonalChallengeStatusOut, UserOut } from '@/app/lib/api';
 import { COLORS, FONTS } from '@/app/lib/constants';
 
 import { AppHeader } from './ui/AppHeader';
@@ -14,11 +14,22 @@ import { Panel, Badge, MeterBar, WearDial } from './ui/RaceKit';
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
-function KmHero({ stats, tires }: { stats: StatsOut | null; tires: TireSetOut | null }) {
+function KmHero({
+	stats,
+	tires,
+	goalKm,
+	onGoalClick,
+}: {
+	stats: StatsOut | null;
+	tires: TireSetOut | null;
+	goalKm?: number | null;
+	onGoalClick?: () => void;
+}) {
 	const totalKm = stats?.total_km ?? 0;
 	const front = tires?.front;
 	const rear = tires?.rear;
 	const sameTire = front && rear && front.name === rear.name && front.size === rear.size;
+	const goalReached = !!goalKm && totalKm >= goalKm;
 
 	const fmtDate = (iso: string) =>
 		new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -48,7 +59,46 @@ function KmHero({ stats, tires }: { stats: StatsOut | null; tires: TireSetOut | 
 				<span className="mb-2 text-xl font-semibold text-white/70" style={{ fontFamily: FONTS.title }}>
 					km
 				</span>
+				{goalKm ? (
+					<button
+						onClick={onGoalClick}
+						className="mb-2.5 text-sm font-semibold text-white/50 transition-opacity hover:opacity-80"
+						style={{ fontFamily: FONTS.title }}
+					>
+						/ {goalKm.toLocaleString('fr-FR')} km
+					</button>
+				) : null}
 			</div>
+
+			{goalKm ? (
+				goalReached ? (
+					<div
+						className="mb-3 flex items-center gap-2 rounded-xl px-3 py-2.5"
+						style={{ background: 'rgba(255,200,0,0.16)', border: '1px solid rgba(255,200,0,0.35)' }}
+					>
+						<PartyPopper size={16} color={COLORS.yellow} className="flex-shrink-0" />
+						<p className="text-[11px] leading-snug text-white/90" style={{ fontFamily: FONTS.body }}>
+							Objectif atteint ! Continue sur ta lancée ou{' '}
+							<button onClick={onGoalClick} className="font-bold underline" style={{ color: COLORS.yellow }}>
+								augmente ton objectif
+							</button>
+							.
+						</p>
+					</div>
+				) : (
+					<div className="mb-3">
+						<div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }}>
+							<div
+								className="h-full rounded-full"
+								style={{
+									width: `${Math.min(100, (totalKm / goalKm) * 100)}%`,
+									background: COLORS.yellow,
+								}}
+							/>
+						</div>
+					</div>
+				)
+			) : null}
 
 			<div className="flex gap-3">
 				{sameTire ? (
@@ -119,13 +169,34 @@ function TireCard({ animated, stats }: { animated: boolean; stats: StatsOut | nu
 // Ces deux métriques n'existent pas telles quelles côté API : on les dérive de
 // manière réaliste à partir de l'usure réelle (wear_pct), seule donnée
 // télémétrique fiable dont on dispose pour chaque pneu.
+//
+// La perte n'est pas linéaire : comme pour un pneu réel, elle reste lente
+// tant que la gomme/la carcasse sont intactes, puis s'accélère nettement
+// après ~65% d'usure (proche de la bande d'usure minimale). Le seuil et le
+// taux de base sont propres à chaque métrique, mais la même courbe (linéaire
+// avant le seuil, quadratique accélérée après) est réutilisée pour les deux.
+const DEGRADATION_THRESHOLD = 65; // % d'usure au-delà duquel la perte s'accélère
+
+function deriveDegradingMetric(wear: number, baseRate: number): number {
+	const w = Math.min(100, Math.max(0, wear));
+	if (w <= DEGRADATION_THRESHOLD) {
+		return Math.max(0, Math.round(100 - w * baseRate));
+	}
+	const baseLoss = DEGRADATION_THRESHOLD * baseRate;
+	const overshoot = w - DEGRADATION_THRESHOLD;
+	const maxOvershoot = 100 - DEGRADATION_THRESHOLD;
+	// La part de perte restante (jusqu'à 100%) est rattrapée de façon
+	// quadratique : la pente augmente à mesure qu'on approche de 100% d'usure.
+	const acceleratedLoss = baseLoss + (overshoot / maxOvershoot) ** 2 * (100 - baseLoss);
+	return Math.max(0, Math.round(100 - acceleratedLoss));
+}
 
 function deriveGrip(wear: number): number {
-	return Math.max(0, Math.round(100 - wear * 0.35));
+	return deriveDegradingMetric(wear, 0.4);
 }
 
 function deriveEfficiency(wear: number): number {
-	return Math.max(0, Math.round(100 - wear * 0.22));
+	return deriveDegradingMetric(wear, 0.22);
 }
 
 function ComparisonMatrix({ stats }: { stats: StatsOut | null }) {
@@ -479,10 +550,16 @@ function ChallengeHeaderButton({ onClick }: { onClick: () => void }) {
 		<button
 			onClick={onClick}
 			aria-label="Mon défi personnel"
-			className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80"
-			style={{ background: 'rgba(255,200,0,0.14)', border: '1px solid rgba(255,200,0,0.35)' }}
+			className="flex h-9 flex-shrink-0 items-center gap-1.5 rounded-full px-3 transition-opacity hover:opacity-80"
+			style={{ background: 'var(--challenge-accent-bg)', border: '1px solid var(--challenge-accent-border)' }}
 		>
-			<Sparkles size={16} color={COLORS.yellow} />
+			<Sparkles size={16} color="var(--challenge-accent)" />
+			<span
+				className="text-[11px] font-bold tracking-wide whitespace-nowrap"
+				style={{ color: 'var(--challenge-accent)', fontFamily: FONTS.title }}
+			>
+				Mon défi
+			</span>
 		</button>
 	);
 }
@@ -536,13 +613,19 @@ function LegendsLink({ onNavigate }: { onNavigate: (s: string) => void }) {
 					<Trophy size={18} color={COLORS.onGold} />
 				</div>
 				<div className="min-w-0 flex-1">
+					{/* Fond systématiquement sombre (dégradé blueDark) quel que soit le thème :
+					    on fixe un texte clair plutôt que les tokens heading/gray50 qui s'inversent
+					    en thème light et deviennent illisibles sur ce fond. */}
 					<div
 						className="text-[12px] font-black tracking-wide break-words uppercase"
-						style={{ color: COLORS.heading, fontFamily: FONTS.title }}
+						style={{ color: COLORS.white, fontFamily: FONTS.title }}
 					>
 						Ils ont choisi Michelin, et ça leur réussit !
 					</div>
-					<div className="mt-0.5 text-[10px] break-words" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+					<div
+						className="mt-0.5 text-[10px] break-words"
+						style={{ color: 'rgba(255,255,255,0.72)', fontFamily: FONTS.body }}
+					>
 						Romain Bardet, Team Picnic PostNL, MotoGP... découvrez les champions Michelin
 					</div>
 				</div>
@@ -559,6 +642,7 @@ export function TelemetryScreen() {
 	const [animated, setAnimated] = useState(false);
 	const [stats, setStats] = useState<StatsOut | null>(null);
 	const [tires, setTires] = useState<TireSetOut | null>(null);
+	const [user, setUser] = useState<UserOut | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [challengeOpen, setChallengeOpen] = useState(false);
 	const onNavigate = (screen: string) => router.push(`/${screen}`);
@@ -569,10 +653,11 @@ export function TelemetryScreen() {
 	}, []);
 
 	useEffect(() => {
-		Promise.all([userApi.getStats(), tiresApi.getTires()])
-			.then(([s, t]) => {
+		Promise.all([userApi.getStats(), tiresApi.getTires(), userApi.getMe()])
+			.then(([s, t, u]) => {
 				setStats(s);
 				setTires(t);
+				setUser(u);
 			})
 			.catch(console.error)
 			.finally(() => setLoading(false));
@@ -613,7 +698,7 @@ export function TelemetryScreen() {
 					</div>
 				) : (
 					<>
-						<KmHero stats={stats} tires={tires} />
+						<KmHero stats={stats} tires={tires} goalKm={user?.goal_km} onGoalClick={() => router.push('/profile')} />
 						<TireCard animated={animated} stats={stats} />
 						<ComparisonMatrix stats={stats} />
 						<LegendsLink onNavigate={onNavigate} />

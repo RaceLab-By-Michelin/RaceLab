@@ -2,7 +2,24 @@
 
 import { useState, useEffect } from 'react';
 
-import { User, MapPin, Bike, Activity, Calendar, Zap, Check, X, Pencil, Loader, Mail, Weight, Ruler } from 'lucide-react';
+import {
+	User,
+	MapPin,
+	Bike,
+	Activity,
+	Calendar,
+	Zap,
+	Check,
+	X,
+	Pencil,
+	Loader,
+	Mail,
+	Weight,
+	Ruler,
+	Settings,
+	Target,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 import { userApi, ridesApi } from '@/app/lib/api';
 import type { UserOut, StatsOut, RideOut, BikeOut } from '@/app/lib/api';
@@ -587,6 +604,142 @@ function PhysicalInfoCard({ user, onUpdateUser }: { user: UserOut | null; onUpda
 	);
 }
 
+// ─── GoalCard ────────────────────────────────────────────────────────────────
+
+function GoalCard({ user, stats, onUpdateUser }: { user: UserOut | null; stats: StatsOut | null; onUpdateUser: (u: UserOut) => void }) {
+	const [editing, setEditing] = useState(false);
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [form, setForm] = useState({ goal_km: '' });
+
+	const totalKm = stats?.total_km ?? 0;
+	const goalKm = user?.goal_km ?? null;
+	const goalReached = !!goalKm && totalKm >= goalKm;
+
+	const openEdit = () => {
+		setForm({ goal_km: goalKm != null ? String(goalKm) : '' });
+		setError(null);
+		setEditing(true);
+	};
+
+	const handleSave = async () => {
+		const goal = Number(form.goal_km);
+		if (!goal || goal < 1) {
+			setError('Objectif invalide (supérieur à 0 km).');
+			return;
+		}
+		setError(null);
+		setSaving(true);
+		try {
+			const updated = await userApi.patchMe({ goal_km: goal });
+			onUpdateUser(updated);
+			setEditing(false);
+		} catch (e) {
+			console.error(e);
+			setError("Impossible d'enregistrer cet objectif.");
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	return (
+		<div className="glass-panel mx-5 mb-4 rounded-2xl p-4">
+			<div className="mb-3 flex items-center justify-between">
+				<div className="flex items-center gap-2">
+					<Target size={13} color={COLORS.blue} />
+					<span
+						className="text-[12px] font-bold tracking-widest uppercase"
+						style={{ color: COLORS.blue, fontFamily: FONTS.title }}
+					>
+						Mon Objectif
+					</span>
+				</div>
+				{!editing && (
+					<button
+						onClick={openEdit}
+						className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold"
+						style={{ background: COLORS.gray05, color: COLORS.blue, fontFamily: FONTS.title }}
+					>
+						<Pencil size={9} />
+						{goalKm != null ? 'Modifier' : 'Définir'}
+					</button>
+				)}
+			</div>
+
+			{editing ? (
+				<div className="flex flex-col gap-2.5">
+					<div>
+						<label
+							className="mb-1 block text-[9px] font-bold tracking-widest uppercase"
+							style={{ color: COLORS.gray50, fontFamily: FONTS.title }}
+						>
+							Objectif (km)
+						</label>
+						<input
+							style={inputStyle}
+							type="number"
+							placeholder="1000"
+							value={form.goal_km}
+							onChange={(e) => setForm({ goal_km: e.target.value })}
+						/>
+					</div>
+					{error && (
+						<div className="text-[10px] font-semibold" style={{ color: COLORS.danger, fontFamily: FONTS.body }}>
+							{error}
+						</div>
+					)}
+					<div className="mt-1 flex gap-2">
+						<button
+							onClick={handleSave}
+							disabled={saving}
+							className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold"
+							style={{ background: COLORS.blue, color: 'white', fontFamily: FONTS.title }}
+						>
+							{saving ? <Loader size={11} className="animate-spin" /> : <Check size={11} />}
+							Enregistrer
+						</button>
+						<button
+							onClick={() => setEditing(false)}
+							disabled={saving}
+							className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold"
+							style={{ background: COLORS.gray10, color: COLORS.grayDark, fontFamily: FONTS.title }}
+						>
+							<X size={11} />
+							Annuler
+						</button>
+					</div>
+				</div>
+			) : goalKm != null ? (
+				<div>
+					<div className="mb-2 flex items-end justify-between">
+						<span className="text-[18px] leading-none font-black" style={{ color: COLORS.heading, fontFamily: FONTS.mono }}>
+							{Math.round(totalKm).toLocaleString('fr-FR')}{' '}
+							<span className="text-[12px] font-semibold" style={{ color: COLORS.gray50 }}>
+								/ {goalKm.toLocaleString('fr-FR')} km
+							</span>
+						</span>
+					</div>
+					<div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: COLORS.gray10 }}>
+						<div
+							className="h-full rounded-full"
+							style={{ width: `${Math.min(100, (totalKm / goalKm) * 100)}%`, background: goalReached ? COLORS.yellow : COLORS.blue }}
+						/>
+					</div>
+					{goalReached && (
+						<div className="mt-2 text-[11px] font-semibold" style={{ color: COLORS.yellow, fontFamily: FONTS.body }}>
+							Objectif atteint ! Augmente-le pour continuer à progresser.
+						</div>
+					)}
+				</div>
+			) : (
+				<div className="text-[11px]" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+					Aucun objectif défini. Fixe-toi un cap pour suivre ta progression.
+				</div>
+			)}
+		</div>
+	);
+}
+
 // ─── StatsGrid ────────────────────────────────────────────────────────────────
 
 function StatsGrid({ stats }: { stats: StatsOut | null }) {
@@ -721,6 +874,7 @@ function RecentRides({ rides }: { rides: RideOut[] }) {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export function ProfileScreen() {
+	const router = useRouter();
 	const [user, setUser] = useState<UserOut | null>(null);
 	const [stats, setStats] = useState<StatsOut | null>(null);
 	const [rides, setRides] = useState<RideOut[]>([]);
@@ -746,28 +900,38 @@ export function ProfileScreen() {
 	return (
 		<div className="flex h-full flex-col" style={{ background: COLORS.bgGradient }}>
 			<div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-				<div className="px-5 pt-5 pb-4">
-					<div className="mb-1 flex items-center gap-2">
-						<User size={12} color={COLORS.warning} />
-						<p
-							className="text-[10px] tracking-widest uppercase"
-							style={{ color: COLORS.gray50, fontFamily: FONTS.title }}
+				<div className="flex items-start justify-between px-5 pt-5 pb-4">
+					<div>
+						<div className="mb-1 flex items-center gap-2">
+							<User size={12} color={COLORS.warning} />
+							<p
+								className="text-[10px] tracking-widest uppercase"
+								style={{ color: COLORS.gray50, fontFamily: FONTS.title }}
+							>
+								Mon Compte
+							</p>
+						</div>
+						<h1
+							className="leading-none uppercase"
+							style={{
+								fontFamily: FONTS.title,
+								fontSize: '26px',
+								fontWeight: 800,
+								letterSpacing: '0.04em',
+								color: COLORS.blue,
+							}}
 						>
-							Mon Compte
-						</p>
+							Mon Profil
+						</h1>
 					</div>
-					<h1
-						className="leading-none uppercase"
-						style={{
-							fontFamily: FONTS.title,
-							fontSize: '26px',
-							fontWeight: 800,
-							letterSpacing: '0.04em',
-							color: COLORS.blue,
-						}}
+					<button
+						onClick={() => router.push('/settings')}
+						aria-label="Réglages"
+						className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80"
+						style={{ background: COLORS.gray05, border: `1px solid ${COLORS.glassBorder}` }}
 					>
-						Mon Profil
-					</h1>
+						<Settings size={16} color={COLORS.blue} />
+					</button>
 				</div>
 
 				{loading ? (
@@ -781,6 +945,7 @@ export function ProfileScreen() {
 					<>
 						<ProfileHero user={user} onUpdateUser={handleUpdateUser} />
 						<StatsGrid stats={stats} />
+						<GoalCard user={user} stats={stats} onUpdateUser={handleUpdateUser} />
 						<PhysicalInfoCard user={user} onUpdateUser={handleUpdateUser} />
 						<BikeCard user={user} onUpdateBike={handleUpdateBike} />
 						<PassportSection />
