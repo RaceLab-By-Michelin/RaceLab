@@ -24,6 +24,8 @@ export interface UserOut {
 	bike: BikeOut;
 	onboarding_completed: boolean;
 	avatar_url?: string | null;
+	weight_kg: number;
+	height_cm: number;
 }
 
 export interface UserPatch {
@@ -32,6 +34,8 @@ export interface UserPatch {
 	city?: string;
 	level?: string;
 	level_progress?: number;
+	weight_kg?: number;
+	height_cm?: number;
 }
 
 export interface BikePatch {
@@ -47,6 +51,8 @@ export interface RegisterIn {
 	name: string;
 	email: string;
 	password: string;
+	weight_kg: number;
+	height_cm: number;
 }
 
 export interface LoginIn {

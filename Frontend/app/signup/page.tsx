@@ -23,6 +23,8 @@ export default function SignupPage() {
 	const [name, setName] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
+	const [weightKg, setWeightKg] = useState('');
+	const [heightCm, setHeightCm] = useState('');
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [stravaLoading, setStravaLoading] = useState(false);
@@ -48,7 +50,13 @@ export default function SignupPage() {
 		setError(null);
 		setLoading(true);
 		try {
-			await authApi.register({ name, email, password });
+			await authApi.register({
+				name,
+				email,
+				password,
+				weight_kg: Number(weightKg),
+				height_cm: Number(heightCm),
+			});
 			await refresh();
 			router.replace('/onboarding');
 		} catch (err: unknown) {
@@ -86,6 +94,22 @@ export default function SignupPage() {
 					placeholder="8 caractères minimum"
 					autoComplete="new-password"
 				/>
+				<div className="grid grid-cols-2 gap-3">
+					<AuthField
+						label="Poids (kg)"
+						type="number"
+						value={weightKg}
+						onChange={setWeightKg}
+						placeholder="75"
+					/>
+					<AuthField
+						label="Taille (cm)"
+						type="number"
+						value={heightCm}
+						onChange={setHeightCm}
+						placeholder="180"
+					/>
+				</div>
 				{error && <ErrorBanner message={error} />}
 				<SubmitButton loading={loading} icon={<UserPlus size={14} />} label="Créer mon compte" />
 			</form>

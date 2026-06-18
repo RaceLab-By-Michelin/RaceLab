@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-import { User, MapPin, Bike, Activity, Calendar, Zap, Check, X, Pencil, Loader } from 'lucide-react';
+import { User, MapPin, Bike, Activity, Calendar, Zap, Check, X, Pencil, Loader, Mail, Weight, Ruler } from 'lucide-react';
 
 import { userApi, ridesApi } from '@/app/lib/api';
 import type { UserOut, StatsOut, RideOut, BikeOut } from '@/app/lib/api';
@@ -405,6 +405,188 @@ function BikeCard({ user, onUpdateBike }: { user: UserOut | null; onUpdateBike: 
 	);
 }
 
+// ─── PhysicalInfoCard ──────────────────────────────────────────────────────────
+
+function PhysicalInfoCard({ user, onUpdateUser }: { user: UserOut | null; onUpdateUser: (u: UserOut) => void }) {
+	const [editing, setEditing] = useState(false);
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [form, setForm] = useState({ weight_kg: '', height_cm: '' });
+
+	const openEdit = () => {
+		setForm({
+			weight_kg: user?.weight_kg != null ? String(user.weight_kg) : '',
+			height_cm: user?.height_cm != null ? String(user.height_cm) : '',
+		});
+		setError(null);
+		setEditing(true);
+	};
+
+	const handleSave = async () => {
+		const weight = Number(form.weight_kg);
+		const height = Number(form.height_cm);
+		if (!weight || weight < 30 || weight > 250) {
+			setError('Poids invalide (entre 30 et 250 kg).');
+			return;
+		}
+		if (!height || height < 100 || height > 230) {
+			setError('Taille invalide (entre 100 et 230 cm).');
+			return;
+		}
+		setError(null);
+		setSaving(true);
+		try {
+			const updated = await userApi.patchMe({ weight_kg: weight, height_cm: height });
+			onUpdateUser(updated);
+			setEditing(false);
+		} catch (e) {
+			console.error(e);
+			setError("Impossible d'enregistrer ces informations.");
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	return (
+		<div className="glass-panel mx-5 mb-4 rounded-2xl p-4">
+			<div className="mb-3 flex items-center justify-between">
+				<div className="flex items-center gap-2">
+					<User size={13} color={COLORS.blue} />
+					<span
+						className="text-[12px] font-bold tracking-widest uppercase"
+						style={{ color: COLORS.blue, fontFamily: FONTS.title }}
+					>
+						Mes informations
+					</span>
+				</div>
+				{!editing && (
+					<button
+						onClick={openEdit}
+						className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold"
+						style={{ background: COLORS.gray05, color: COLORS.blue, fontFamily: FONTS.title }}
+					>
+						<Pencil size={9} />
+						Modifier
+					</button>
+				)}
+			</div>
+
+			{editing ? (
+				<div className="flex flex-col gap-2.5">
+					<div className="grid grid-cols-2 gap-2">
+						<div>
+							<label
+								className="mb-1 block text-[9px] font-bold tracking-widest uppercase"
+								style={{ color: COLORS.gray50, fontFamily: FONTS.title }}
+							>
+								Poids (kg)
+							</label>
+							<input
+								style={inputStyle}
+								type="number"
+								placeholder="75"
+								value={form.weight_kg}
+								onChange={(e) => setForm((f) => ({ ...f, weight_kg: e.target.value }))}
+							/>
+						</div>
+						<div>
+							<label
+								className="mb-1 block text-[9px] font-bold tracking-widest uppercase"
+								style={{ color: COLORS.gray50, fontFamily: FONTS.title }}
+							>
+								Taille (cm)
+							</label>
+							<input
+								style={inputStyle}
+								type="number"
+								placeholder="180"
+								value={form.height_cm}
+								onChange={(e) => setForm((f) => ({ ...f, height_cm: e.target.value }))}
+							/>
+						</div>
+					</div>
+					{error && (
+						<div className="text-[10px] font-semibold" style={{ color: COLORS.danger, fontFamily: FONTS.body }}>
+							{error}
+						</div>
+					)}
+					<div className="mt-1 flex gap-2">
+						<button
+							onClick={handleSave}
+							disabled={saving}
+							className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold"
+							style={{ background: COLORS.blue, color: 'white', fontFamily: FONTS.title }}
+						>
+							{saving ? <Loader size={11} className="animate-spin" /> : <Check size={11} />}
+							Enregistrer
+						</button>
+						<button
+							onClick={() => setEditing(false)}
+							disabled={saving}
+							className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold"
+							style={{ background: COLORS.gray10, color: COLORS.grayDark, fontFamily: FONTS.title }}
+						>
+							<X size={11} />
+							Annuler
+						</button>
+					</div>
+				</div>
+			) : (
+				<div className="grid grid-cols-3 gap-3">
+					<div className="flex items-center gap-2">
+						<div
+							className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl"
+							style={{ background: COLORS.gray05 }}
+						>
+							<Mail size={13} color={COLORS.blue} />
+						</div>
+						<div className="min-w-0">
+							<div className="text-[9px] tracking-widest uppercase" style={{ color: COLORS.gray40, fontFamily: FONTS.title }}>
+								Email
+							</div>
+							<div className="truncate text-[11px] font-semibold" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
+								{user?.email ?? '—'}
+							</div>
+						</div>
+					</div>
+					<div className="flex items-center gap-2">
+						<div
+							className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl"
+							style={{ background: COLORS.gray05 }}
+						>
+							<Weight size={13} color={COLORS.blue} />
+						</div>
+						<div className="min-w-0">
+							<div className="text-[9px] tracking-widest uppercase" style={{ color: COLORS.gray40, fontFamily: FONTS.title }}>
+								Poids
+							</div>
+							<div className="text-[11px] font-semibold" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
+								{user?.weight_kg != null ? `${user.weight_kg} kg` : '—'}
+							</div>
+						</div>
+					</div>
+					<div className="flex items-center gap-2">
+						<div
+							className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl"
+							style={{ background: COLORS.gray05 }}
+						>
+							<Ruler size={13} color={COLORS.blue} />
+						</div>
+						<div className="min-w-0">
+							<div className="text-[9px] tracking-widest uppercase" style={{ color: COLORS.gray40, fontFamily: FONTS.title }}>
+								Taille
+							</div>
+							<div className="text-[11px] font-semibold" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
+								{user?.height_cm != null ? `${user.height_cm} cm` : '—'}
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
+
 // ─── StatsGrid ────────────────────────────────────────────────────────────────
 
 function StatsGrid({ stats }: { stats: StatsOut | null }) {
@@ -491,9 +673,9 @@ function RecentRides({ rides }: { rides: RideOut[] }) {
 				</div>
 				<div
 					className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold"
-					style={{ background: 'rgba(52,211,153,0.14)', color: '#34D399', fontFamily: FONTS.title }}
+					style={{ background: COLORS.successLight, color: COLORS.success, fontFamily: FONTS.title }}
 				>
-					<div className="h-1 w-1 rounded-full bg-[#34D399]" />
+					<div className="h-1 w-1 rounded-full" style={{ background: COLORS.success }} />
 					Strava
 				</div>
 			</div>
@@ -599,6 +781,7 @@ export function ProfileScreen() {
 					<>
 						<ProfileHero user={user} onUpdateUser={handleUpdateUser} />
 						<StatsGrid stats={stats} />
+						<PhysicalInfoCard user={user} onUpdateUser={handleUpdateUser} />
 						<BikeCard user={user} onUpdateBike={handleUpdateBike} />
 						<PassportSection />
 						<RecentRides rides={rides} />

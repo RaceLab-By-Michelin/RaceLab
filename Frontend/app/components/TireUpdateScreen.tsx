@@ -358,11 +358,11 @@ function CurrentTireCard({
 		<div
 			className="mx-5 mb-4 overflow-hidden rounded-2xl"
 			style={{
-				background: 'rgba(23,26,40,0.92)',
+				background: COLORS.surface,
 				backdropFilter: 'blur(14px) saturate(140%)',
 				WebkitBackdropFilter: 'blur(14px) saturate(140%)',
 				border: `2px solid ${COLORS.blue}`,
-				boxShadow: `0 8px 24px rgba(0,0,0,0.4)`,
+				boxShadow: `0 8px 24px rgba(0,0,0,0.2)`,
 			}}
 		>
 			{/* Header */}
@@ -370,7 +370,7 @@ function CurrentTireCard({
 				className="flex items-center gap-2 px-4 py-3"
 				style={{ background: `linear-gradient(90deg, ${COLORS.blueDark} 0%, ${COLORS.blue} 100%)` }}
 			>
-				<div className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#34D399]" />
+				<div className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: COLORS.success }} />
 				<span
 					className="text-[10px] font-black tracking-widest text-white uppercase"
 					style={{ fontFamily: FONTS.title }}

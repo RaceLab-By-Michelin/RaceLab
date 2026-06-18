@@ -8,7 +8,13 @@ from tests.conftest import make_user, auth_header_for
 def test_register_creates_user_and_session(client, db_session):
     resp = client.post(
         "/auth/register",
-        json={"name": "Alice Martin", "email": "Alice.Martin@Example.com", "password": "secret123"},
+        json={
+            "name": "Alice Martin",
+            "email": "Alice.Martin@Example.com",
+            "password": "secret123",
+            "weight_kg": 62,
+            "height_cm": 168,
+        },
     )
     assert resp.status_code == 201
     body = resp.json()
@@ -18,6 +24,8 @@ def test_register_creates_user_and_session(client, db_session):
     assert body["user"]["username"] == "alice_martin"
     assert body["user"]["onboarding_completed"] is False
     assert body["user"]["avatar_url"] is None
+    assert body["user"]["weight_kg"] == 62
+    assert body["user"]["height_cm"] == 168
 
     user = db_session.query(models.User).filter_by(email="alice.martin@example.com").first()
     assert user is not None
@@ -39,7 +47,7 @@ def test_register_rejects_short_password(client):
 
 
 def test_register_rejects_duplicate_email(client):
-    payload = {"name": "Bob", "email": "bob@example.com", "password": "secret123"}
+    payload = {"name": "Bob", "email": "bob@example.com", "password": "secret123", "weight_kg": 75, "height_cm": 180}
     first = client.post("/auth/register", json=payload)
     assert first.status_code == 201
 
@@ -48,7 +56,10 @@ def test_register_rejects_duplicate_email(client):
 
 
 def test_login_success(client):
-    client.post("/auth/register", json={"name": "Carla", "email": "carla@example.com", "password": "secret123"})
+    client.post(
+        "/auth/register",
+        json={"name": "Carla", "email": "carla@example.com", "password": "secret123", "weight_kg": 75, "height_cm": 180},
+    )
 
     resp = client.post("/auth/login", json={"email": "carla@example.com", "password": "secret123"})
     assert resp.status_code == 200
@@ -58,7 +69,10 @@ def test_login_success(client):
 
 
 def test_login_wrong_password(client):
-    client.post("/auth/register", json={"name": "Carla", "email": "carla@example.com", "password": "secret123"})
+    client.post(
+        "/auth/register",
+        json={"name": "Carla", "email": "carla@example.com", "password": "secret123", "weight_kg": 75, "height_cm": 180},
+    )
 
     resp = client.post("/auth/login", json={"email": "carla@example.com", "password": "wrong-password"})
     assert resp.status_code == 401
@@ -76,7 +90,8 @@ def test_me_requires_auth(client):
 
 def test_me_with_valid_token(client):
     register = client.post(
-        "/auth/register", json={"name": "Dora", "email": "dora@example.com", "password": "secret123"}
+        "/auth/register",
+        json={"name": "Dora", "email": "dora@example.com", "password": "secret123", "weight_kg": 75, "height_cm": 180},
     )
     token = register.json()["token"]
 
@@ -110,7 +125,8 @@ def test_me_rejects_expired_session(client, db_session):
 
 def test_logout_invalidates_session(client, db_session):
     register = client.post(
-        "/auth/register", json={"name": "Eli", "email": "eli@example.com", "password": "secret123"}
+        "/auth/register",
+        json={"name": "Eli", "email": "eli@example.com", "password": "secret123", "weight_kg": 75, "height_cm": 180},
     )
     token = register.json()["token"]
     headers = {"Authorization": f"Bearer {token}"}

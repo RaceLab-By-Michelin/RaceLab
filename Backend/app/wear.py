@@ -8,9 +8,17 @@ Modèle :
                         * f_meteo
                         * f_surface
                         * f_position_roue
+                        * f_poids_cycliste
 
 Plus un terme de vieillissement passif lié au temps écoulé (dégradation de la
 gomme même hors utilisation), appliqué séparément via `aging_wear`.
+
+Le poids du cycliste influence directement l'usure : un pneu chargé davantage
+(cycliste + vélo plus lourds) se déforme plus sous la roue, chauffe plus et
+use sa gomme plus vite — c'est un effet physique bien documenté (cf. f_poids_cycliste
+ci-dessous). La taille n'a pas d'effet direct sur l'usure d'un pneu (ce n'est
+pas une charge) : elle n'intervient donc pas dans ce calcul, mais elle est tout
+de même demandée et stockée pour le profil cycliste.
 
 Toutes les fonctions sont pures (aucun accès DB) pour rester faciles à tester.
 """
@@ -56,6 +64,15 @@ SURFACE_FACTOR = {
 ELEVATION_REF_M_PER_KM = 10.0
 ELEVATION_MAX_FACTOR = 1.4
 
+# Poids "système" de référence (cycliste, gabarit moyen 1m80/75kg) utilisé pour
+# calibrer le taux de base : un cycliste plus lourd charge davantage ses pneus
+# (plus de déformation/chaleur → usure plus rapide), un cycliste plus léger les
+# préserve. ~0.6%/kg d'écart, borné pour rester réaliste sur les gabarits extrêmes.
+REFERENCE_RIDER_WEIGHT_KG = 75.0
+RIDER_WEIGHT_SENSITIVITY = 0.006
+RIDER_WEIGHT_FACTOR_MIN = 0.7
+RIDER_WEIGHT_FACTOR_MAX = 1.5
+
 
 def base_rate(life_km: int | None, category: str | None) -> float:
     """Taux d'usure de base (%/km), calibré pour atteindre 100% à life_km."""
@@ -87,10 +104,21 @@ def wheel_factor(wheel: str) -> float:
     return WHEEL_POSITION_FACTOR.get(wheel, 1.0)
 
 
+def rider_weight_factor(weight_kg: float | None) -> float:
+    """Plus le cycliste est lourd, plus la charge sur le pneu (donc l'usure)
+    augmente ; à l'inverse un gabarit léger préserve la gomme. Linéaire autour
+    du gabarit de référence (75 kg), borné pour éviter les effets extrêmes."""
+    if not weight_kg or weight_kg <= 0:
+        weight_kg = REFERENCE_RIDER_WEIGHT_KG
+    factor = 1.0 + RIDER_WEIGHT_SENSITIVITY * (weight_kg - REFERENCE_RIDER_WEIGHT_KG)
+    return min(RIDER_WEIGHT_FACTOR_MAX, max(RIDER_WEIGHT_FACTOR_MIN, factor))
+
+
 def compute_ride_wear_delta(
     tire: models.Tire,
     ride: models.Ride,
     catalog: models.TireCatalog | None,
+    rider_weight_kg: float | None = None,
 ) -> float:
     """Usure (en points de %) ajoutée à `tire` par `ride`."""
     life_km = catalog.life_km if catalog else None
@@ -101,8 +129,9 @@ def compute_ride_wear_delta(
     f_weather = weather_factor(ride.weather)
     f_surface = surface_factor(ride.surface_type)
     f_wheel = wheel_factor(tire.wheel)
+    f_weight = rider_weight_factor(rider_weight_kg)
 
-    delta = ride.distance_km * k * f_elev * f_weather * f_surface * f_wheel
+    delta = ride.distance_km * k * f_elev * f_weather * f_surface * f_wheel * f_weight
     return round(delta, 3)
 
 

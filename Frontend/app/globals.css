@@ -1,8 +1,154 @@
 @import 'tailwindcss';
 
-:root {
+/* ─── Theme tokens ─────────────────────────────────────────────────────────
+   Dark (default) = current RaceLab obsidian/satin-gold look.
+   Light = Charte Digitale Michelin (Mars 2024) official palette:
+   Bleu Michelin #27509B, Jaune Michelin #FCE500, gris fonctionnels,
+   couleurs d'alerte Valide/Avertissement/Danger. ───────────────────────── */
+
+:root,
+[data-theme='dark'] {
 	--background: #0b0d17;
 	--foreground: #f4f6fc;
+
+	--color-blue: #5c8df6;
+	--color-blue-dark: #0f1b3d;
+	--color-blue-dark-02: #1b2c5c;
+	--color-blue-light: #8fb0ff;
+	--color-yellow: #ffc800;
+
+	--color-white: #ffffff;
+	--color-black: #000000;
+	--color-gray-05: rgba(255, 255, 255, 0.05);
+	--color-gray-10: rgba(255, 255, 255, 0.09);
+	--color-gray-20: #3c4156;
+	--color-gray-40: #8b92ac;
+	--color-gray-50: #a6adc6;
+	--color-gray-60: #c2c7dc;
+	--color-gray-dark: #e7e9f2;
+
+	--color-heading: #f4f6fc;
+	--color-on-gold: #161b2e;
+	--color-surface: #171a28;
+	--color-surface-strong: #1f2333;
+
+	--color-success: #34d399;
+	--color-success-light: rgba(52, 211, 153, 0.14);
+	--color-success-dark: #1f9c71;
+	--color-success-medium: #4ade80;
+	--color-warning: #ffb020;
+	--color-warning-light: rgba(255, 176, 32, 0.14);
+	--color-danger: #f2655c;
+	--color-danger-light: rgba(242, 101, 92, 0.14);
+	--color-danger-dark: #c2453d;
+
+	--color-start: #5c8df6;
+	--color-start-light: rgba(92, 141, 246, 0.14);
+	--color-achieved: #34d399;
+	--color-achieved-light: rgba(52, 211, 153, 0.14);
+
+	--bg-gradient:
+		radial-gradient(ellipse 70% 50% at 15% -10%, rgba(92, 141, 246, 0.2) 0%, rgba(92, 141, 246, 0) 55%),
+		radial-gradient(ellipse 60% 45% at 90% 0%, rgba(255, 200, 0, 0.07) 0%, rgba(255, 200, 0, 0) 60%),
+		repeating-linear-gradient(
+			125deg,
+			rgba(255, 255, 255, 0.015) 0px,
+			rgba(255, 255, 255, 0.015) 2px,
+			transparent 2px,
+			transparent 46px
+		),
+		linear-gradient(180deg, #121420 0%, #0e101b 45%, #0b0d17 100%);
+	--glass-border: rgba(255, 255, 255, 0.1);
+	--glow-yellow: rgba(255, 200, 0, 0.35);
+
+	--glass-panel-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 40%), #171a28;
+	--glass-panel-border: rgba(255, 255, 255, 0.09);
+	--glass-panel-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.06),
+		0 20px 40px -24px rgba(0, 0, 0, 0.8);
+	--glass-panel-strong-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 45%), #1c2032;
+	--glass-panel-strong-border: rgba(255, 255, 255, 0.11);
+	--glass-panel-strong-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.08),
+		0 24px 48px -24px rgba(0, 0, 0, 0.85);
+	--glass-bar-bg: rgba(11, 13, 23, 0.82);
+	--glass-bar-border: rgba(255, 255, 255, 0.09);
+
+	--logo-bg: transparent;
+
+	color-scheme: dark;
+}
+
+[data-theme='light'] {
+	--background: #f4f7fc;
+	--foreground: #0d1b33;
+
+	/* Bleu Michelin et ses teintes officielles */
+	--color-blue: #27509b;
+	--color-blue-dark: #00205b;
+	--color-blue-dark-02: #3a61a6;
+	--color-blue-light: #6182bb;
+	/* Jaune Michelin — usage commercial uniquement (CTA, accents) */
+	--color-yellow: #fce500;
+
+	--color-white: #ffffff;
+	--color-black: #000000;
+	/* Neutres teintés Bleu Michelin (au lieu des gris achromatiques) — dérivés
+	   des teintes/nuances officielles du Bleu Michelin (#27509B). */
+	--color-gray-05: #edf2fb;
+	--color-gray-10: #dce6f7;
+	--color-gray-20: #c1d6ef; /* Bleu Michelin Light 02 */
+	--color-gray-40: #6182bb; /* Bleu Michelin Dark 02 */
+	--color-gray-50: #3a61a6; /* Bleu Michelin Dark 03 */
+	--color-gray-60: #27509b; /* Bleu Michelin */
+	--color-gray-dark: #14233d; /* texte de corps bleu nuit, inspiré du Bleu Foncé Michelin */
+
+	--color-heading: #0d1b33;
+	--color-on-gold: #0d1b33;
+	--color-surface: #ffffff;
+	--color-surface-strong: #edf2fb;
+
+	/* Couleurs fonctionnelles d'alerte Michelin */
+	--color-success: #2e7d32;
+	--color-success-light: #e8f5e5;
+	--color-success-dark: #92c18f;
+	--color-success-medium: #2e7d32;
+	--color-warning: #f9a825;
+	--color-warning-light: #fdecc0;
+	--color-danger: #b71c1c;
+	--color-danger-light: #f4cec2;
+	--color-danger-dark: #dd8880;
+
+	--color-start: #27509b;
+	--color-start-light: #d4e7fa;
+	--color-achieved: #2e7d32;
+	--color-achieved-light: #e8f5e5;
+
+	--bg-gradient:
+		radial-gradient(ellipse 70% 50% at 15% -10%, rgba(39, 80, 155, 0.1) 0%, rgba(39, 80, 155, 0) 55%),
+		radial-gradient(ellipse 60% 45% at 90% 0%, rgba(252, 229, 0, 0.1) 0%, rgba(252, 229, 0, 0) 60%),
+		linear-gradient(180deg, #ffffff 0%, #f3f7fd 45%, #e9f0fb 100%);
+	--glass-border: rgba(39, 80, 155, 0.14);
+	--glow-yellow: rgba(252, 229, 0, 0.45);
+
+	--glass-panel-bg: linear-gradient(180deg, rgba(39, 80, 155, 0.025), rgba(39, 80, 155, 0) 40%), #ffffff;
+	--glass-panel-border: rgba(39, 80, 155, 0.14);
+	--glass-panel-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.6),
+		0 12px 28px -18px rgba(13, 27, 51, 0.18);
+	--glass-panel-strong-bg: linear-gradient(180deg, rgba(39, 80, 155, 0.03), rgba(39, 80, 155, 0) 45%), #ffffff;
+	--glass-panel-strong-border: rgba(39, 80, 155, 0.18);
+	--glass-panel-strong-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.7),
+		0 16px 32px -18px rgba(13, 27, 51, 0.22);
+	--glass-bar-bg: rgba(255, 255, 255, 0.86);
+	--glass-bar-border: rgba(39, 80, 155, 0.14);
+
+	/* Logo RaceLab dessiné pour fond sombre (jaune/blanc) : on lui redonne
+	   son fond noir d'origine en thème clair pour préserver son contraste. */
+	--logo-bg: #000000;
+
+	color-scheme: light;
 }
 
 @theme inline {
@@ -12,43 +158,35 @@
 	--font-mono: var(--font-geist-mono);
 }
 
-html {
-	color-scheme: dark;
-}
-
 body {
 	background: var(--background);
 	color: var(--foreground);
 	font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ─── Michelin RaceLab — satin glass performance UI (dark) ──────────────── */
+/* ─── Michelin RaceLab — satin glass performance UI (theme-aware) ───────── */
 
 .glass-panel {
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 40%), #171a28;
+	background: var(--glass-panel-bg);
 	-webkit-backdrop-filter: blur(14px) saturate(140%);
 	backdrop-filter: blur(14px) saturate(140%);
-	border: 1px solid rgba(255, 255, 255, 0.09);
-	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.06),
-		0 20px 40px -24px rgba(0, 0, 0, 0.8);
+	border: 1px solid var(--glass-panel-border);
+	box-shadow: var(--glass-panel-shadow);
 }
 
 .glass-panel-strong {
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 45%), #1c2032;
+	background: var(--glass-panel-strong-bg);
 	-webkit-backdrop-filter: blur(20px) saturate(150%);
 	backdrop-filter: blur(20px) saturate(150%);
-	border: 1px solid rgba(255, 255, 255, 0.11);
-	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.08),
-		0 24px 48px -24px rgba(0, 0, 0, 0.85);
+	border: 1px solid var(--glass-panel-strong-border);
+	box-shadow: var(--glass-panel-strong-shadow);
 }
 
 .glass-bar {
-	background: rgba(11, 13, 23, 0.82);
+	background: var(--glass-bar-bg);
 	-webkit-backdrop-filter: blur(16px) saturate(140%);
 	backdrop-filter: blur(16px) saturate(140%);
-	border-color: rgba(255, 255, 255, 0.09);
+	border-color: var(--glass-bar-border);
 }
 
 .glass-glow-active {

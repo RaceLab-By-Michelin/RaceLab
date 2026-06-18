@@ -2,17 +2,63 @@
 
 import { useState, useEffect } from 'react';
 
-import { ChevronRight, Settings, Shield, Info, Loader, LogOut, Users } from 'lucide-react';
+import { ChevronRight, Settings, Shield, Info, Loader, LogOut, Users, Moon, Sun } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { settingsApi, authApi } from '@/app/lib/api';
 import type { StravaOut } from '@/app/lib/api';
 import { useAuth } from '@/app/lib/auth-context';
 import { COLORS, FONTS } from '@/app/lib/constants';
+import { useTheme } from '@/app/lib/dark-mode-context';
 
 import { AppFooter } from './ui/AppFooter';
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
+
+/** Commutateur (switch) — composant standard de la Charte Digitale Michelin. */
+function Switch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+	return (
+		<button
+			role="switch"
+			aria-checked={checked}
+			aria-label={label}
+			onClick={onChange}
+			className="relative h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200"
+			style={{ background: checked ? COLORS.blue : COLORS.gray20 }}
+		>
+			<span
+				className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full transition-transform duration-200"
+				style={{
+					background: COLORS.white,
+					transform: checked ? 'translateX(20px)' : 'translateX(0)',
+					boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+				}}
+			/>
+		</button>
+	);
+}
+
+function ThemeToggleSection() {
+	const { theme, toggleTheme } = useTheme();
+	const isLight = theme === 'light';
+
+	return (
+		<div className="glass-panel mx-5 mb-4 overflow-hidden rounded-2xl">
+			<SettingRow
+				icon={
+					isLight ? (
+						<Sun size={15} color={COLORS.warning} />
+					) : (
+						<Moon size={15} color={COLORS.gray50} />
+					)
+				}
+				label="Mode clair"
+				description={isLight ? 'Activé — palette Charte Michelin' : 'Désactivé — thème sombre RaceLab'}
+				right={<Switch checked={isLight} onChange={toggleTheme} label="Activer le mode clair" />}
+			/>
+		</div>
+	);
+}
 
 function SectionHeader({ label }: { label: string }) {
 	return (
@@ -126,8 +172,8 @@ function StravaSection({ onNavigate }: { onNavigate: (screen: string) => void })
 				right={
 					connected ? (
 						<div className="flex items-center gap-1">
-							<div className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#34D399]" />
-							<span className="text-[10px] font-semibold" style={{ color: '#34D399', fontFamily: FONTS.title }}>
+							<div className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: COLORS.success }} />
+							<span className="text-[10px] font-semibold" style={{ color: COLORS.success, fontFamily: FONTS.title }}>
 								Connecté
 							</span>
 						</div>
@@ -271,6 +317,10 @@ export function SettingsScreen() {
 						Paramètres
 					</h1>
 				</div>
+
+				{/* Apparence */}
+				<SectionHeader label="Application" />
+				<ThemeToggleSection />
 
 				{/* Strava */}
 				<SectionHeader label="Intégrations" />

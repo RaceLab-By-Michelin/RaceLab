@@ -88,8 +88,8 @@ def create_ride(
     days_elapsed = max(0, (ride_date - reference_date).days)
     passive_delta = wear.aging_wear(days_elapsed)
 
-    front_delta = wear.compute_ride_wear_delta(front, ride, front_catalog) + passive_delta
-    rear_delta = wear.compute_ride_wear_delta(rear, ride, rear_catalog) + passive_delta
+    front_delta = wear.compute_ride_wear_delta(front, ride, front_catalog, user.weight_kg) + passive_delta
+    rear_delta = wear.compute_ride_wear_delta(rear, ride, rear_catalog, user.weight_kg) + passive_delta
 
     front.wear_pct = wear.apply_wear(front, front_delta)
     rear.wear_pct = wear.apply_wear(rear, rear_delta)

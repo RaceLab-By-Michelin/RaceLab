@@ -25,11 +25,11 @@ export function Panel({
 		<div
 			className={`rounded-2xl ${className}`}
 			style={{
-				background: 'rgba(23,26,40,0.78)',
+				background: 'var(--glass-panel-bg)',
 				backdropFilter: 'blur(14px) saturate(140%)',
 				WebkitBackdropFilter: 'blur(14px) saturate(140%)',
 				border: `1px solid ${borderColor ?? COLORS.glassBorder}`,
-				boxShadow: '0 8px 24px rgba(0,0,0,0.32), 0 1px 0 rgba(255,255,255,0.05) inset',
+				boxShadow: 'var(--glass-panel-shadow)',
 				...style,
 			}}
 		>

@@ -20,9 +20,9 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 	const pathname = usePathname();
 	const activeScreen = screenFromPath(pathname);
 
-	const bgOuter = '#0B0D17';
+	const bgOuter = 'var(--background)';
 	const bgPhone = COLORS.bgGradient;
-	const navBg = 'rgba(20,23,36,0.85)';
+	const navBg = 'var(--glass-bar-bg)';
 	const navBorder = COLORS.glassBorder;
 
 	return (

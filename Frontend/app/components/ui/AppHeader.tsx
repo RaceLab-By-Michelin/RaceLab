@@ -12,7 +12,14 @@ interface AppHeaderProps {
 }
 
 function MichelinLogo() {
-	return <img src="/racelab-icon.svg" alt="RaceLab" className="w-35 flex-shrink-0" />;
+	return (
+		<div
+			className="flex flex-shrink-0 items-center rounded-lg px-2 py-1"
+			style={{ background: 'var(--logo-bg)' }}
+		>
+			<img src="/racelab-icon.svg" alt="RaceLab" className="w-35 flex-shrink-0" />
+		</div>
+	);
 }
 
 export function AppHeader({ showLiveEvent = false, rightSlot, onBack }: AppHeaderProps) {

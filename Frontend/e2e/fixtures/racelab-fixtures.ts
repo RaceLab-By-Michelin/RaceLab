@@ -27,6 +27,8 @@ export const completedUser: UserOut = {
 	level_progress: 64,
 	onboarding_completed: true,
 	avatar_url: null,
+	weight_kg: 75,
+	height_cm: 180,
 	bike: {
 		brand: 'Canyon',
 		model: 'Endurace',

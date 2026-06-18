@@ -27,6 +27,8 @@ def _user_to_out(user: models.User) -> schemas.UserOut:
         ),
         onboarding_completed=user.onboarding_completed,
         avatar_url=user.avatar_url,
+        weight_kg=user.weight_kg,
+        height_cm=user.height_cm,
     )
 
 
@@ -71,6 +73,8 @@ def register(body: schemas.RegisterIn, db: Session = Depends(get_db)):
         bike_color="#1A3A6B",
         password_hash=auth_lib.hash_password(body.password),
         onboarding_completed=False,
+        weight_kg=body.weight_kg,
+        height_cm=body.height_cm,
     )
     db.add(user)
     db.commit()

@@ -20,6 +20,12 @@ class User(Base):
     # URL de la photo de profil Strava (athlete.profile), si le compte est lié.
     avatar_url = Column(String, nullable=True)
 
+    # Poids (kg) et taille (cm) du cycliste — demandés à l'inscription, utilisés
+    # pour affiner le calcul d'usure des pneus (charge portée par les pneus).
+    # Défaut 75kg/180cm pour les comptes créés avant l'ajout de ces champs.
+    weight_kg = Column(Float, nullable=False, default=75.0)
+    height_cm = Column(Float, nullable=False, default=180.0)
+
     # ── Auth ──────────────────────────────────────────────────────────────
     password_hash = Column(String, nullable=False, default="")
     # False jusqu'à ce que l'utilisateur ait renseigné vélo + pneus la première fois

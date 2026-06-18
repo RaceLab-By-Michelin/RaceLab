@@ -1,64 +1,61 @@
 // ─── Michelin Design Tokens ────────────────────────────────────────────────
 // Source: Charte Digitale Michelin, Mars 2024
 
+// Toutes les valeurs sont des variables CSS définies dans globals.css :
+// thème "dark" (look RaceLab satin/obsidian) et thème "light" (Charte
+// Digitale Michelin, Mars 2024 — Bleu Michelin #27509B, Jaune Michelin
+// #FCE500, gris fonctionnels, couleurs d'alerte officielles). Le composant
+// reste inchangé, seule la valeur résolue par le navigateur change selon
+// l'attribut data-theme posé sur <html>.
 export const COLORS = {
-	// ─── Luxury dark palette (Michelin RaceLab — obsidian / midnight blue / satin gold) ───
 	// Primary palette
-	blue: '#5C8DF6', // Michelin blue, brightened for legibility on dark surfaces
-	blueDark: '#0F1B3D', // Deep navy — used for backgrounds/gradients, NOT text-on-dark
-	blueDark02: '#1B2C5C',
-	blueLight: '#8FB0FF',
-	yellow: '#FFC800', // Satin gold-yellow accent (refined Michelin yellow)
+	blue: 'var(--color-blue)',
+	blueDark: 'var(--color-blue-dark)',
+	blueDark02: 'var(--color-blue-dark-02)',
+	blueLight: 'var(--color-blue-light)',
+	yellow: 'var(--color-yellow)', // Jaune Michelin — usage commercial uniquement
 
-	// Neutrals — flipped for dark mode. "white"/"black" keep literal meaning (still
-	// used as text-on-color), gray05/10/20 are now subtle light-on-dark fills,
-	// gray40/50/grayDark are light/muted text tones for the dark background.
-	white: '#FFFFFF',
-	black: '#000000',
-	gray05: 'rgba(255,255,255,0.05)',
-	gray10: 'rgba(255,255,255,0.09)',
-	gray20: '#3C4156',
-	gray40: '#8B92AC',
-	gray50: '#A6ADC6',
-	gray60: '#C2C7DC',
-	grayDark: '#E7E9F2', // now a light/muted body-text tone for dark satin cards
+	// Neutrals
+	white: 'var(--color-white)',
+	black: 'var(--color-black)',
+	gray05: 'var(--color-gray-05)',
+	gray10: 'var(--color-gray-10)',
+	gray20: 'var(--color-gray-20)',
+	gray40: 'var(--color-gray-40)',
+	gray50: 'var(--color-gray-50)',
+	gray60: 'var(--color-gray-60)',
+	grayDark: 'var(--color-gray-dark)',
 
-	// New semantic tokens needed for the dark refactor
-	heading: '#F4F6FC', // primary heading/title text on dark cards (replaces blueDark-as-text)
-	onGold: '#161B2E', // dark text used ON TOP of the satin gold accent (chips, CTA)
-	surface: '#171A28', // elevated dark satin surface (replaces white-as-active-bg)
-	surfaceStrong: '#1F2333', // more prominent elevated surface
+	// Semantic surface/text tokens
+	heading: 'var(--color-heading)',
+	onGold: 'var(--color-on-gold)',
+	surface: 'var(--color-surface)',
+	surfaceStrong: 'var(--color-surface-strong)',
 
-	// Semantic
-	success: '#34D399',
-	successLight: 'rgba(52,211,153,0.14)',
-	successDark: '#1F9C71',
-	succesMedim: '#4ADE80',
-	warning: '#FFB020',
-	warningLight: 'rgba(255,176,32,0.14)',
-	danger: '#F2655C',
-	dangerLight: 'rgba(242,101,92,0.14)',
-	dangerDark: '#C2453D',
+	// Couleurs fonctionnelles d'alerte (Valide / Avertissement / Danger)
+	success: 'var(--color-success)',
+	successLight: 'var(--color-success-light)',
+	successDark: 'var(--color-success-dark)',
+	succesMedim: 'var(--color-success-medium)',
+	warning: 'var(--color-warning)',
+	warningLight: 'var(--color-warning-light)',
+	danger: 'var(--color-danger)',
+	dangerLight: 'var(--color-danger-light)',
+	dangerDark: 'var(--color-danger-dark)',
 
 	// "Pas encore roulé" — incite à prendre le vélo (teinte énergique, distincte
 	// du vert "bon état" pour ne pas laisser croire que les pneus sont juste neufs)
-	start: '#5C8DF6',
-	startLight: 'rgba(92,141,246,0.14)',
+	start: 'var(--color-start)',
+	startLight: 'var(--color-start-light)',
 
 	// Forte usure (>80%) — cadré comme un objectif atteint, pas une alerte.
-	achieved: '#34D399',
-	achievedLight: 'rgba(52,211,153,0.14)',
+	achieved: 'var(--color-achieved)',
+	achievedLight: 'var(--color-achieved-light)',
 
-	// Performance-cockpit background — ultra-premium dark mode: deep obsidian and
-	// midnight blue, a muted gold spotlight, and a faint carbon/road-line texture.
-	// No neon glow — dark, layered, high-contrast typography on top.
-	bgGradient:
-		'radial-gradient(ellipse 70% 50% at 15% -10%, rgba(92,141,246,0.20) 0%, rgba(92,141,246,0) 55%), ' +
-		'radial-gradient(ellipse 60% 45% at 90% 0%, rgba(255,200,0,0.07) 0%, rgba(255,200,0,0) 60%), ' +
-		'repeating-linear-gradient(125deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 2px, transparent 2px, transparent 46px), ' +
-		'linear-gradient(180deg, #121420 0%, #0E101B 45%, #0B0D17 100%)',
-	glassBorder: 'rgba(255,255,255,0.10)',
-	glowYellow: 'rgba(255,200,0,0.35)',
+	// Performance-cockpit background — adapté par thème dans globals.css.
+	bgGradient: 'var(--bg-gradient)',
+	glassBorder: 'var(--glass-border)',
+	glowYellow: 'var(--glow-yellow)',
 } as const;
 
 // Typography: condensed/technical titles → Space Grotesk for luxury-watch metrics.

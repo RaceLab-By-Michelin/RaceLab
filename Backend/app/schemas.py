@@ -2,7 +2,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ─── User ────────────────────────────────────────────────────────────────────
@@ -28,6 +28,8 @@ class UserOut(BaseModel):
     bike: BikeOut
     onboarding_completed: bool = False
     avatar_url: Optional[str] = None
+    weight_kg: float
+    height_cm: float
 
     model_config = {"from_attributes": True}
 
@@ -38,6 +40,8 @@ class UserPatch(BaseModel):
     city: Optional[str] = None
     level: Optional[str] = None
     level_progress: Optional[int] = None
+    weight_kg: Optional[float] = None
+    height_cm: Optional[float] = None
 
 
 class BikePatch(BaseModel):
@@ -53,6 +57,10 @@ class RegisterIn(BaseModel):
     name: str
     email: str
     password: str
+    # Demandés à l'inscription : utilisés pour affiner le calcul d'usure des
+    # pneus (la charge portée par le pneu dépend du poids du cycliste).
+    weight_kg: float = Field(ge=30, le=250)
+    height_cm: float = Field(ge=100, le=230)
 
 
 class LoginIn(BaseModel):
