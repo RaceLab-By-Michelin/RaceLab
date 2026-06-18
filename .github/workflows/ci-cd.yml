@@ -1,16 +1,17 @@
 name: CI/CD
 
-# Déclencheurs :
-# - push sur main           -> tests puis build + push des images Docker
-# - pull_request vers main  -> tests uniquement (pas de push d'image)
+# Triggers:
+# - push (any branch)       -> tests always run
+# - pull_request into main  -> tests always run
+# Building + pushing Docker images + deployment only run on a push to main
+# (typically when a PR is merged) — see the `vars` job.
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
 jobs:
-  # ── Tests backend (FastAPI / pytest, contre un vrai Postgres) ────────────────
+  # ── Backend tests (FastAPI / pytest, against a real Postgres) ────────────────
   backend-tests:
     runs-on: ubuntu-latest
     services:
@@ -37,17 +38,17 @@ jobs:
           cache: pip
           cache-dependency-path: Backend/requirements.txt
 
-      - name: Installer les dépendances
+      - name: Install dependencies
         working-directory: Backend
         run: pip install -r requirements.txt
 
-      # - name: Lancer la suite de tests
-      #   working-directory: Backend
-      #   env:
-      #     TEST_DATABASE_URL: postgresql://racelab:racelab_secret@localhost:5432/racelab_test
-      #   run: pytest
+      - name: Run test suite
+        working-directory: Backend
+        env:
+          TEST_DATABASE_URL: postgresql://racelab:racelab_secret@localhost:5432/racelab_test
+        run: pytest
 
-  # ── Tests frontend (typecheck + lint + tests unitaires Vitest) ───────────────
+  # ── Frontend tests (typecheck + lint + Vitest unit tests) ─────────────────────
   frontend-tests:
     runs-on: ubuntu-latest
     steps:
@@ -59,23 +60,23 @@ jobs:
           cache: npm
           cache-dependency-path: Frontend/package-lock.json
 
-      - name: Installer les dépendances
+      - name: Install dependencies
         working-directory: Frontend
         run: npm ci
 
-      # - name: Lint
-      #   working-directory: Frontend
-      #   run: npm run lint
+      - name: Lint
+        working-directory: Frontend
+        run: npm run lint
 
-      # - name: Typecheck
-      #   working-directory: Frontend
-      #   run: npm run typecheck
+      - name: Typecheck
+        working-directory: Frontend
+        run: npm run typecheck
 
-      # - name: Tests unitaires
-      #   working-directory: Frontend
-      #   run: npm run test
+      - name: Unit tests
+        working-directory: Frontend
+        run: npm run test
 
-  # ── Calcule une fois le nom des images, partagé par tous les jobs de build ───
+  # ── Compute the image names once, shared by all build jobs ───────────────────
   vars:
     needs: [backend-tests, frontend-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -84,9 +85,9 @@ jobs:
       backend_image: ${{ steps.set.outputs.backend_image }}
       frontend_image: ${{ steps.set.outputs.frontend_image }}
     steps:
-      # Sans DOCKER_REGISTRY (cas Docker Hub) : pas de préfixe -> "zastial/racelab-backend".
-      # Avec DOCKER_REGISTRY (registry privé, ghcr.io...) : "mon-registry.com/zastial/racelab-backend".
-      - name: Définir le nom des images
+      # Without DOCKER_REGISTRY (Docker Hub case): no prefix -> "zastial/racelab-backend".
+      # With DOCKER_REGISTRY (private registry, ghcr.io...): "my-registry.com/zastial/racelab-backend".
+      - name: Set image names
         id: set
         run: |
           PREFIX="${{ vars.DOCKER_REGISTRY }}"
@@ -94,10 +95,10 @@ jobs:
           echo "backend_image=${PREFIX}${{ vars.DOCKER_NAMESPACE }}/racelab-backend" >> "$GITHUB_OUTPUT"
           echo "frontend_image=${PREFIX}${{ vars.DOCKER_NAMESPACE }}/racelab-frontend" >> "$GITHUB_OUTPUT"
 
-  # ── Build backend par architecture, sur des runners natifs (pas d'émulation
-  #    QEMU -> beaucoup plus rapide que l'ancienne build multi-arch en un seul
-  #    job). Chaque job pousse uniquement son digest, le manifest multi-arch
-  #    final est assemblé par le job merge-backend ci-dessous.
+  # ── Build backend per architecture, on native runners (no QEMU emulation
+  #    -> much faster than the old single-job multi-arch build). Each job
+  #    only pushes its digest; the final multi-arch manifest is assembled by
+  #    the merge-backend job below.
   build-backend:
     needs: vars
     strategy:
@@ -113,14 +114,14 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Connexion au registry Docker
+      - name: Log in to Docker registry
         uses: docker/login-action@v3
         with:
           registry: ${{ vars.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build + push (par digest)
+      - name: Build + push (by digest)
         id: build
         uses: docker/build-push-action@v5
         with:
@@ -130,13 +131,13 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend-${{ matrix.platform }}
           outputs: type=image,name=${{ needs.vars.outputs.backend_image }},push-by-digest=true,name-canonical=true,push=true
 
-      - name: Exporter le digest
+      - name: Export digest
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
 
-      - name: Upload du digest
+      - name: Upload digest
         uses: actions/upload-artifact@v4
         with:
           name: digests-backend-${{ strategy.job-index }}
@@ -144,12 +145,12 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # ── Assemble les digests amd64 + arm64 en une seule image multi-arch ─────────
+  # ── Merge the amd64 + arm64 digests into a single multi-arch image ───────────
   merge-backend:
     needs: [vars, build-backend]
     runs-on: ubuntu-latest
     steps:
-      - name: Télécharger les digests
+      - name: Download digests
         uses: actions/download-artifact@v4
         with:
           pattern: digests-backend-*
@@ -158,14 +159,14 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Connexion au registry Docker
+      - name: Log in to Docker registry
         uses: docker/login-action@v3
         with:
           registry: ${{ vars.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Métadonnées image backend
+      - name: Backend image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -174,7 +175,7 @@ jobs:
             type=raw,value=latest
             type=sha,format=short
 
-      - name: Créer + pousser le manifest multi-arch
+      - name: Create + push multi-arch manifest
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create \
@@ -183,7 +184,7 @@ jobs:
         env:
           DOCKER_METADATA_OUTPUT_JSON: ${{ steps.meta.outputs.json }}
 
-  # ── Idem pour le frontend ──────────────────────────────────────────────────
+  # ── Same for the frontend ─────────────────────────────────────────────────
   build-frontend:
     needs: vars
     strategy:
@@ -199,14 +200,14 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Connexion au registry Docker
+      - name: Log in to Docker registry
         uses: docker/login-action@v3
         with:
           registry: ${{ vars.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build + push (par digest)
+      - name: Build + push (by digest)
         id: build
         uses: docker/build-push-action@v5
         with:
@@ -218,13 +219,13 @@ jobs:
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
           outputs: type=image,name=${{ needs.vars.outputs.frontend_image }},push-by-digest=true,name-canonical=true,push=true
 
-      - name: Exporter le digest
+      - name: Export digest
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
 
-      - name: Upload du digest
+      - name: Upload digest
         uses: actions/upload-artifact@v4
         with:
           name: digests-frontend-${{ strategy.job-index }}
@@ -236,7 +237,7 @@ jobs:
     needs: [vars, build-frontend]
     runs-on: ubuntu-latest
     steps:
-      - name: Télécharger les digests
+      - name: Download digests
         uses: actions/download-artifact@v4
         with:
           pattern: digests-frontend-*
@@ -245,14 +246,14 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Connexion au registry Docker
+      - name: Log in to Docker registry
         uses: docker/login-action@v3
         with:
           registry: ${{ vars.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Métadonnées image frontend
+      - name: Frontend image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -261,7 +262,7 @@ jobs:
             type=raw,value=latest
             type=sha,format=short
 
-      - name: Créer + pousser le manifest multi-arch
+      - name: Create + push multi-arch manifest
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create \
@@ -270,12 +271,12 @@ jobs:
         env:
           DOCKER_METADATA_OUTPUT_JSON: ${{ steps.meta.outputs.json }}
 
-  # ── Déploiement sur le VPS via SSH (remplace l'ancien webhook) ────────────
+  # ── Deployment to the VPS via SSH (replaces the old webhook) ─────────────────
   deploy:
     needs: [merge-backend, merge-frontend]
     runs-on: ubuntu-latest
     steps:
-      - name: Déployer sur le VPS via SSH
+      - name: Deploy to the VPS via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
