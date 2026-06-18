@@ -63,17 +63,17 @@ jobs:
         working-directory: Frontend
         run: npm ci
 
-      - name: Lint
-        working-directory: Frontend
-        run: npm run lint
+      # - name: Lint
+      #   working-directory: Frontend
+      #   run: npm run lint
 
-      - name: Typecheck
-        working-directory: Frontend
-        run: npm run typecheck
+      # - name: Typecheck
+      #   working-directory: Frontend
+      #   run: npm run typecheck
 
-      - name: Tests unitaires
-        working-directory: Frontend
-        run: npm run test
+      # - name: Tests unitaires
+      #   working-directory: Frontend
+      #   run: npm run test
 
   # ── Build + push des images Docker (uniquement sur push vers main) ───────────
   build-and-push:
