@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 
-import { ChevronRight, Bike, Trophy, CheckCircle, AlertCircle, Sparkles, Star, Gift, Send, X } from 'lucide-react';
+import { ChevronRight, Bike, Trophy, CheckCircle, Sparkles, Star, Gift, Send, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { userApi, tiresApi, personalChallengesApi } from '@/app/lib/api';
-import type { StatsOut, TireSetOut, RecommendationsOut, PersonalChallengeStatusOut } from '@/app/lib/api';
-import { COLORS, FONTS, getTireAlert } from '@/app/lib/constants';
+import type { StatsOut, TireSetOut, PersonalChallengeStatusOut } from '@/app/lib/api';
+import { COLORS, FONTS } from '@/app/lib/constants';
 
 import { AppHeader } from './ui/AppHeader';
 import { Panel, Badge, MeterBar, WearDial } from './ui/RaceKit';
@@ -220,7 +220,12 @@ function PersonalChallengeCard() {
 	const [status, setStatus] = useState<PersonalChallengeStatusOut | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [working, setWorking] = useState(false);
-	const [reward, setReward] = useState<{ pct: number; code: string } | null>(null);
+	const [reward, setReward] = useState<{
+		type: 'discount' | 'giveaway';
+		pct: number;
+		code: string;
+		tireName: string | null;
+	} | null>(null);
 	const [ratings, setRatings] = useState({ adherence: 0, comfort: 0, speed: 0 });
 	const [comment, setComment] = useState('');
 
@@ -274,7 +279,12 @@ function PersonalChallengeCard() {
 				speed_rating: ratings.speed,
 				comment: comment.trim() || undefined,
 			});
-			setReward({ pct: updated.reward_discount_pct ?? 0, code: updated.reward_discount_code ?? '' });
+			setReward({
+				type: updated.reward_type,
+				pct: updated.reward_discount_pct ?? 0,
+				code: updated.reward_discount_code ?? '',
+				tireName: updated.reward_giveaway_tire_name ?? null,
+			});
 		} catch {
 			// silently
 		} finally {
@@ -303,20 +313,31 @@ function PersonalChallengeCard() {
 					<Gift size={22} color={COLORS.onGold} />
 				</div>
 				<div className="text-[13px] font-black tracking-wide uppercase" style={{ color: 'white', fontFamily: FONTS.title }}>
-					Merci pour ton retour !
+					{reward.type === 'giveaway' ? 'Pneu mérité !' : 'Merci pour ton retour !'}
 				</div>
 				<p className="mt-1 text-[11px]" style={{ color: 'rgba(255,255,255,0.85)', fontFamily: FONTS.body }}>
-					Tu débloques une réduction sur ton prochain pneu Michelin.
+					{reward.type === 'giveaway'
+						? `Ton assiduité et ce défi dépassé t'offrent un ${reward.tireName ?? 'pneu Michelin'} — sans tirage au sort, juste mérité.`
+						: 'Tu débloques une réduction sur ton prochain pneu Michelin.'}
 				</p>
-				{reward.pct > 0 && (
+				{reward.type === 'giveaway' ? (
 					<div className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2" style={{ background: COLORS.yellow }}>
-						<span className="text-[14px] font-black" style={{ color: COLORS.onGold, fontFamily: FONTS.mono }}>
-							-{reward.pct}%
-						</span>
-						<span className="text-[11px] font-bold" style={{ color: COLORS.onGold, fontFamily: FONTS.mono }}>
-							{reward.code}
+						<Gift size={14} color={COLORS.onGold} />
+						<span className="text-[12px] font-black" style={{ color: COLORS.onGold, fontFamily: FONTS.mono }}>
+							{reward.tireName ?? 'Pneu offert'}
 						</span>
 					</div>
+				) : (
+					reward.pct > 0 && (
+						<div className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2" style={{ background: COLORS.yellow }}>
+							<span className="text-[14px] font-black" style={{ color: COLORS.onGold, fontFamily: FONTS.mono }}>
+								-{reward.pct}%
+							</span>
+							<span className="text-[11px] font-bold" style={{ color: COLORS.onGold, fontFamily: FONTS.mono }}>
+								{reward.code}
+							</span>
+						</div>
+					)
 				)}
 				<button
 					onClick={handleNextChallenge}
@@ -359,7 +380,15 @@ function PersonalChallengeCard() {
 					>
 						<Gift size={14} color={COLORS.yellow} className="flex-shrink-0" />
 						<span className="text-[11px] font-semibold" style={{ color: COLORS.heading, fontFamily: FONTS.body }}>
-							Termine-le pour débloquer jusqu&apos;à <strong>-{status.next_reward_pct}%</strong> sur ton prochain pneu
+							{status.giveaway_tier_reached ? (
+								<>
+									Dépasse cet objectif et un <strong>pneu Michelin t&apos;est offert</strong> — mérité, pas tiré au sort
+								</>
+							) : (
+								<>
+									Termine-le pour débloquer jusqu&apos;à <strong>-{status.next_reward_pct}%</strong> sur ton prochain pneu
+								</>
+							)}
 						</span>
 					</div>
 
@@ -492,133 +521,34 @@ function ChallengeModal({ onClose }: { onClose: () => void }) {
 	);
 }
 
-function TireAlert({ onNavigate, stats }: { onNavigate: (s: string) => void; stats: StatsOut | null }) {
-	const frontWear = stats?.front_wear ?? 0;
-	const rearWear = stats?.rear_wear ?? 0;
-	const adherencePct = stats?.adherence_pct ?? 100;
-	const alert = getTireAlert(frontWear, rearWear, adherencePct);
-	const [reco, setReco] = useState<RecommendationsOut | null>(null);
-
-	useEffect(() => {
-		// L'offre/réduction n'a de sens que si le cycliste use déjà ses pneus —
-		// pas avant la première sortie ("start") ni quand tout va bien ("ok").
-		if (alert.severity !== 'critical' && alert.severity !== 'warning') return;
-		tiresApi.getRecommendations().then(setReco).catch(console.error);
-	}, [alert.severity]);
-
-	const worstWheel: 'front' | 'rear' = frontWear >= rearWear ? 'front' : 'rear';
-	const offer = reco ? reco[worstWheel] : null;
-
-	if (alert.severity === 'start') {
-		return (
-			<Panel className="mx-5 mb-4 p-0 overflow-hidden">
-				<button
-					onClick={() => onNavigate('legends')}
-					className="speed-pop-in relative flex w-full items-center gap-3 px-4 py-4 text-left transition-all hover:opacity-90"
-					style={{ background: `linear-gradient(120deg, ${COLORS.blueDark} 0%, ${COLORS.blueDark02} 100%)` }}
-				>
-					<div
-						className="speed-pulse flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl"
-						style={{ background: COLORS.yellow }}
-					>
-						<Trophy size={18} color={COLORS.onGold} />
-					</div>
-					<div className="min-w-0 flex-1">
-						<div
-							className="text-[12px] font-black tracking-wide break-words uppercase"
-							style={{ color: COLORS.heading, fontFamily: FONTS.title }}
-						>
-							Ils ont choisi Michelin, et ça leur réussit !
-						</div>
-						<div className="mt-0.5 text-[10px] break-words" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
-							Romain Bardet, Team Picnic PostNL, MotoGP... découvrez les champions Michelin
-						</div>
-					</div>
-					<ChevronRight size={16} color={COLORS.blue} className="flex-shrink-0" />
-				</button>
-			</Panel>
-		);
-	}
-
-	const styles = {
-		critical: {
-			border: COLORS.achieved,
-			iconBg: COLORS.achievedLight,
-			icon: <Trophy size={18} color={COLORS.achieved} />,
-			titleColor: COLORS.achieved,
-		},
-		warning: {
-			border: 'rgba(255,184,0,0.35)',
-			iconBg: 'rgba(255,184,0,0.12)',
-			icon: <AlertCircle size={18} color={COLORS.warning} />,
-			titleColor: '#FFD79A',
-		},
-		ok: {
-			border: COLORS.successDark,
-			iconBg: 'rgba(52,211,153,0.12)',
-			icon: <CheckCircle size={18} color={COLORS.success} />,
-			titleColor: COLORS.success,
-		},
-	}[alert.severity];
-
+function LegendsLink({ onNavigate }: { onNavigate: (s: string) => void }) {
 	return (
-		<div
-			className="mx-5 mb-4 rounded-2xl p-4"
-			style={{
-				background: 'rgba(23,26,40,0.88)',
-				backdropFilter: 'blur(14px) saturate(140%)',
-				WebkitBackdropFilter: 'blur(14px) saturate(140%)',
-				border: `1px solid ${styles.border}`,
-				boxShadow: `0 8px 20px ${styles.border}25, 0 1px 0 rgba(255,255,255,0.06) inset`,
-			}}
-		>
-			<div className="flex gap-3">
+		<Panel className="mx-5 mb-4 p-0 overflow-hidden">
+			<button
+				onClick={() => onNavigate('legends')}
+				className="speed-pop-in relative flex w-full items-center gap-3 px-4 py-4 text-left transition-all hover:opacity-90"
+				style={{ background: `linear-gradient(120deg, ${COLORS.blueDark} 0%, ${COLORS.blueDark02} 100%)` }}
+			>
 				<div
-					className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
-					style={{ background: styles.iconBg }}
+					className="speed-pulse flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl"
+					style={{ background: COLORS.yellow }}
 				>
-					{styles.icon}
+					<Trophy size={18} color={COLORS.onGold} />
 				</div>
-				<div className="flex-1">
-					<p
-						className="mb-1 text-[10px] font-black tracking-widest uppercase"
-						style={{ color: styles.titleColor, fontFamily: FONTS.title }}
+				<div className="min-w-0 flex-1">
+					<div
+						className="text-[12px] font-black tracking-wide break-words uppercase"
+						style={{ color: COLORS.heading, fontFamily: FONTS.title }}
 					>
-						{alert.title}
-					</p>
-					<p className="text-[12px] leading-relaxed" style={{ color: COLORS.grayDark, fontFamily: FONTS.body }}>
-						{alert.message}
-					</p>
-
-					{offer && offer.discount_pct > 0 && (
-						<div className="mt-2 flex flex-wrap items-center gap-2">
-							<span
-								className="rounded-full px-2 py-0.5 text-[11px] font-black"
-								style={{ background: COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.mono }}
-							>
-								-{offer.discount_pct}%
-							</span>
-							{offer.recommended && (
-								<span className="text-[11px] font-semibold" style={{ color: COLORS.blue, fontFamily: FONTS.body }}>
-									sur {offer.recommended.name}
-								</span>
-							)}
-						</div>
-					)}
+						Ils ont choisi Michelin, et ça leur réussit !
+					</div>
+					<div className="mt-0.5 text-[10px] break-words" style={{ color: COLORS.gray50, fontFamily: FONTS.body }}>
+						Romain Bardet, Team Picnic PostNL, MotoGP... découvrez les champions Michelin
+					</div>
 				</div>
-			</div>
-
-			{(alert.severity === 'critical' || alert.severity === 'warning') && (
-				<button
-					onClick={() => onNavigate('tires')}
-					className="mt-3 flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-[12px] font-bold tracking-wider uppercase transition-all hover:opacity-90 active:scale-[0.98]"
-					style={{ background: COLORS.yellow, color: COLORS.onGold, fontFamily: FONTS.title, letterSpacing: '0.1em' }}
-				>
-					{offer && offer.discount_pct > 0 ? `Profiter de -${offer.discount_pct}%` : 'Voir les pneus recommandés'}
-					<ChevronRight size={14} />
-				</button>
-			)}
-		</div>
+				<ChevronRight size={16} color={COLORS.blue} className="flex-shrink-0" />
+			</button>
+		</Panel>
 	);
 }
 
@@ -686,7 +616,7 @@ export function TelemetryScreen() {
 						<KmHero stats={stats} tires={tires} />
 						<TireCard animated={animated} stats={stats} />
 						<ComparisonMatrix stats={stats} />
-						<TireAlert onNavigate={onNavigate} stats={stats} />
+						<LegendsLink onNavigate={onNavigate} />
 					</>
 				)}
 			</div>

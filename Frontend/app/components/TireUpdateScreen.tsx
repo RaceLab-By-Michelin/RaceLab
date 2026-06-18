@@ -41,19 +41,26 @@ function RecommendedSpecPanel({ offer }: { offer: TireRecommendationOut }) {
 	const tire = offer.recommended;
 	if (!tire) return null;
 
-	const gripDelta = Math.round(offer.current_wear_pct * 0.35);
-	const efficiencyDelta = Math.round(offer.current_wear_pct * 0.22);
-	const speedDelta = (offer.current_wear_pct * 0.012).toFixed(1);
-
-	// Sans usure mesurée (pneu neuf ou tout juste monté), aucun gain réel ne
-	// peut être chiffré — on affiche alors une simple recommandation plutôt
-	// que des deltas à 0.
-	const hasDeltas = gripDelta > 0 || efficiencyDelta > 0 || parseFloat(speedDelta) > 0;
+	// Bénéfices tangibles calculés côté backend à partir du profil de
+	// roulage réel (distance/vitesse moyennes) — on vend la performance
+	// attendue, pas juste un prix.
+	const minutesGained = offer.minutes_gained;
+	const resistanceDeltaPct = offer.rolling_resistance_delta_pct;
+	const hasDeltas = minutesGained > 0 || resistanceDeltaPct > 0;
 
 	const deltas = [
-		{ label: 'Grip', value: `+${gripDelta}`, unit: '%' },
-		{ label: 'Vitesse', value: `+${speedDelta}`, unit: 'km/h' },
-		{ label: 'Efficacité', value: `+${efficiencyDelta}`, unit: '%' },
+		{
+			label: 'Temps gagné',
+			value: minutesGained > 0 ? `+${minutesGained}` : '0',
+			unit: 'min',
+			sub: `sur ${Math.round(offer.typical_ride_km)} km`,
+		},
+		{
+			label: 'Résistance roulement',
+			value: resistanceDeltaPct > 0 ? `-${resistanceDeltaPct}` : '0',
+			unit: '%',
+			sub: 'estimée',
+		},
 	];
 
 	const specs = [
@@ -101,22 +108,25 @@ function RecommendedSpecPanel({ offer }: { offer: TireRecommendationOut }) {
 			</div>
 
 			{hasDeltas ? (
-				<div className="relative mt-5 grid grid-cols-3 gap-2.5">
+				<div className="relative mt-5 grid grid-cols-2 gap-2.5">
 					{deltas.map((d) => (
 						<div
 							key={d.label}
-							className="rounded-xl p-2.5 text-center"
+							className="rounded-xl p-3 text-center"
 							style={{ background: 'rgba(255,200,0,0.06)', border: '1px solid rgba(255,200,0,0.18)' }}
 						>
-							<p className="text-[15px] font-black" style={{ color: COLORS.yellow, fontFamily: FONTS.mono }}>
+							<p className="text-[18px] font-black" style={{ color: COLORS.yellow, fontFamily: FONTS.mono }}>
 								{d.value}
-								<span className="text-[10px]">{d.unit}</span>
+								<span className="text-[11px]">{d.unit}</span>
 							</p>
 							<p
-								className="mt-0.5 text-[8px] tracking-wider uppercase"
+								className="mt-0.5 text-[9px] tracking-wider uppercase"
 								style={{ color: COLORS.gray50, fontFamily: FONTS.mono }}
 							>
 								{d.label}
+							</p>
+							<p className="mt-0.5 text-[9px]" style={{ color: COLORS.gray40, fontFamily: FONTS.body }}>
+								{d.sub}
 							</p>
 						</div>
 					))}
@@ -127,6 +137,12 @@ function RecommendedSpecPanel({ offer }: { offer: TireRecommendationOut }) {
 					style={{ color: COLORS.gray50, fontFamily: FONTS.body }}
 				>
 					Pneu le mieux adapté à votre profil de roulage actuel.
+				</p>
+			)}
+			{hasDeltas && (
+				<p className="relative mt-2 text-[9px] italic" style={{ color: COLORS.gray40, fontFamily: FONTS.body }}>
+					Estimation basée sur votre distance et vitesse moyennes, et les caractéristiques du pneu — pas une
+					mesure en conditions réelles.
 				</p>
 			)}
 

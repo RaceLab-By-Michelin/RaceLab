@@ -6,7 +6,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
 from app.auth import get_current_user
-from app.recommend import pick_personal_challenge, compute_personal_challenge_reward
+from app import recommend
+from app.recommend import (
+    pick_personal_challenge,
+    compute_personal_challenge_reward,
+    evaluate_giveaway_eligibility,
+    GIVEAWAY_TIER_THRESHOLD,
+)
 
 router = APIRouter(prefix="/personal-challenges", tags=["personal-challenges"])
 
@@ -57,6 +63,7 @@ def get_current_challenge(db: Session = Depends(get_db), user: models.User = Dep
         challenge=challenge,
         completed_count=completed_count,
         next_reward_pct=next_reward_pct,
+        giveaway_tier_reached=completed_count >= GIVEAWAY_TIER_THRESHOLD,
     )
 
 
@@ -116,9 +123,46 @@ def submit_feedback(
     challenge.feedback_comment = body.comment
 
     completed_count = _completed_count(db, user.id)
-    pct, code = compute_personal_challenge_reward(completed_count)
-    challenge.reward_discount_pct = pct
-    challenge.reward_discount_code = code
+
+    actual_km = (
+        db.query(models.Ride)
+        .filter(
+            models.Ride.user_id == user.id,
+            models.Ride.date >= challenge.created_at,
+            models.Ride.date <= (challenge.completed_at or datetime.utcnow()),
+        )
+        .with_entities(models.Ride.distance_km)
+        .all()
+    )
+    actual_km_total = sum(km for (km,) in actual_km)
+
+    if evaluate_giveaway_eligibility(completed_count, challenge.target_km, actual_km_total):
+        # Mérité : palier de fidélité atteint + objectif du défi largement
+        # dépassé → on offre le pneu recommandé pour son profil plutôt qu'une
+        # réduction, jamais par tirage au sort.
+        rides = db.query(models.Ride).filter(models.Ride.user_id == user.id).all()
+        catalog = db.query(models.TireCatalog).all()
+        front_tire = db.query(models.Tire).filter(
+            models.Tire.user_id == user.id, models.Tire.wheel == "front"
+        ).first()
+        current_catalog_id = front_tire.catalog_id if front_tire else None
+
+        profile = recommend.rider_profile(rides)
+        target_type = recommend.dominant_tire_type(profile, fallback=challenge.discipline)
+        best = recommend.pick_best_tire(catalog, target_type, current_catalog_id, profile)
+
+        challenge.reward_type = "giveaway"
+        challenge.reward_giveaway_tire_catalog_id = best.id if best else None
+        challenge.reward_giveaway_tire_name = best.name if best else None
+        challenge.reward_giveaway_status = "won"
+        challenge.reward_discount_pct = None
+        challenge.reward_discount_code = None
+    else:
+        pct, code = compute_personal_challenge_reward(completed_count)
+        challenge.reward_type = "discount"
+        challenge.reward_discount_pct = pct
+        challenge.reward_discount_code = code
+
     challenge.status = "completed"
 
     db.commit()

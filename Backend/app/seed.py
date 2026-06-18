@@ -673,6 +673,64 @@ ACTIVE_CHALLENGES = [
 ]
 
 
+# ─── Profils simulés réseau de distribution (Feature 2 — dashboard B2B) ──────
+# Pas de vraie base multi-utilisateurs dans ce projet (1 seul compte démo,
+# Alexandre) : ces profils simulent des cyclistes anonymisés répartis par
+# ville, avec un pneu et un rythme d'usure plausibles, pour permettre une
+# agrégation par zone significative côté revendeur. Voir app/retailer.py
+# pour l'agrégation et la projection de fin de vie.
+
+PRACTICE_WEIGHTS_BY_CITY = {
+    "Paris": {"Route": 0.45, "Urbain": 0.35, "Gravel": 0.15, "VTT": 0.05},
+    "Lyon": {"Route": 0.40, "VTT": 0.30, "Gravel": 0.20, "Urbain": 0.10},
+    "Marseille": {"Route": 0.50, "Gravel": 0.25, "VTT": 0.15, "Urbain": 0.10},
+    "Bordeaux": {"Gravel": 0.40, "Route": 0.35, "Urbain": 0.15, "VTT": 0.10},
+    "Lille": {"Urbain": 0.45, "Route": 0.35, "Gravel": 0.10, "VTT": 0.10},
+    "Nantes": {"Route": 0.40, "Gravel": 0.30, "Urbain": 0.20, "VTT": 0.10},
+}
+
+TIRES_BY_PRACTICE = {
+    "Route": ["power-all-season", "lithion3", "pro5", "pro5-tlr", "power-cup2", "power-cup", "power-cup-tlr"],
+    "Gravel": ["power-adventure", "power-gravel"],
+    "VTT": ["wild-xc-race", "wild-enduro", "wild-mud", "mud-enduro"],
+    "Urbain": ["city-street", "city-touring", "city-cargo"],
+}
+
+
+def generate_demo_rider_profiles(n_per_city: int = 25) -> list[dict]:
+    """Génère des profils déterministes (seed fixe) répartis selon des
+    pondérations de pratique réalistes par ville, avec usure et kilométrage
+    hebdomadaire variés pour produire une distribution de fin de vie crédible."""
+    random.seed(99)
+    profiles = []
+    for city, weights in PRACTICE_WEIGHTS_BY_CITY.items():
+        practices = list(weights.keys())
+        probs = list(weights.values())
+        for _ in range(n_per_city):
+            practice = random.choices(practices, weights=probs)[0]
+            tire_id = random.choice(TIRES_BY_PRACTICE[practice])
+            profiles.append(
+                {
+                    "city": city,
+                    "practice_type": practice,
+                    "tire_catalog_id": tire_id,
+                    "wear_pct": random.randint(5, 98),
+                    "weekly_km": round(random.uniform(40, 180), 1),
+                }
+            )
+    return profiles
+
+
+def seed_demo_riders(db: Session) -> None:
+    """Seedé une seule fois (table vide) — indépendant du compte utilisateur
+    réel, donc appelé même si celui-ci existe déjà."""
+    if db.query(models.DemoRiderProfile).count() > 0:
+        return
+    for p in generate_demo_rider_profiles():
+        db.add(models.DemoRiderProfile(**p))
+    db.commit()
+
+
 # ─── Main seed function ───────────────────────────────────────────────────────
 
 def seed_catalog(db: Session) -> None:
@@ -714,9 +772,12 @@ def seed(db: Session) -> None:
     # Le catalogue est toujours synchronisé, même si le reste de la base
     # (User, Tires, Rides, ...) a déjà été seedé précédemment.
     seed_catalog(db)
+    # Idem pour les profils simulés du réseau de distribution (Feature 2) —
+    # indépendants du compte utilisateur réel.
+    seed_demo_riders(db)
 
-    # Guard — le reste du seed (hors catalogue/events/trials) ne s'exécute
-    # qu'une seule fois (base vierge).
+    # Guard — le reste du seed (hors catalogue/events/trials/demo riders) ne
+    # s'exécute qu'une seule fois (base vierge).
     if db.query(models.User).count() > 0:
         seed_events_and_trials(db)
         # Au cas où une exécution précédente du seed (avant ce fix) ait laissé

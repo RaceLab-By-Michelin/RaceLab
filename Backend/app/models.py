@@ -190,6 +190,35 @@ class PersonalChallenge(Base):
     reward_discount_pct = Column(Integer, nullable=True)
     reward_discount_code = Column(String, nullable=True)
 
+    # ── Giveaway pneu mérité ────────────────────────────────────────────────
+    # "discount" (par défaut) | "giveaway" : un pneu Michelin offert plutôt
+    # qu'une réduction, débloqué uniquement par mérite (palier de défis déjà
+    # complétés + dépassement de l'objectif du défi en cours) — jamais par
+    # tirage au sort pur. Voir recommend.evaluate_giveaway_eligibility().
+    reward_type = Column(String, nullable=False, default="discount")
+    reward_giveaway_tire_catalog_id = Column(String, ForeignKey("tire_catalog.id"), nullable=True)
+    reward_giveaway_tire_name = Column(String, nullable=True)  # snapshot (résiste à un changement catalogue)
+    reward_giveaway_status = Column(String, nullable=True)  # "won" une fois débloqué
+
+
+class DemoRiderProfile(Base):
+    """
+    Profil de pratique simulé représentant le réseau de distribution Michelin
+    (Feature 2 — dashboard B2B revendeur), distinct du compte utilisateur réel
+    de la démo (un seul utilisateur, Alexandre). Sans base multi-utilisateurs
+    réelle, ces lignes simulent des cyclistes anonymisés répartis par ville
+    pour permettre une agrégation par zone significative — cf. seed.py pour
+    la génération et retailer.py pour l'agrégation.
+    """
+    __tablename__ = "demo_rider_profiles"
+
+    id = Column(Integer, primary_key=True)
+    city = Column(String, nullable=False, index=True)
+    practice_type = Column(String, nullable=False)   # "Route" | "Gravel" | "VTT" | "Piste" | "Urbain"
+    tire_catalog_id = Column(String, ForeignKey("tire_catalog.id"), nullable=True)
+    wear_pct = Column(Integer, nullable=False, default=0)
+    weekly_km = Column(Float, nullable=False, default=80.0)
+
 
 class TireTrial(Base):
     """Michelin Lab — tirage au sort pour tester un pneu pas encore commercialisé."""

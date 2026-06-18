@@ -178,3 +178,28 @@ def compute_personal_challenge_reward(completed_count: int) -> tuple[int, str]:
     pct = min(10 + 5 * completed_count, 35)
     code = f"MICHELIN{pct}"
     return pct, code
+
+
+# ─── Giveaway pneu mérité ────────────────────────────────────────────────────
+# Le pneu offert n'est jamais tiré au sort : il se débloque par le mérite,
+# combinaison d'un palier de fidélité (nombre de défis personnels déjà menés
+# à bien) et d'une performance sur le défi en cours (kilométrage réellement
+# parcouru pendant la fenêtre du défi, au-delà de l'objectif demandé).
+
+GIVEAWAY_TIER_THRESHOLD = 2          # il faut déjà avoir complété ≥ 2 défis personnels
+GIVEAWAY_OVERACHIEVE_FACTOR = 1.2    # + avoir parcouru ≥ 120% de l'objectif du défi en cours
+
+
+def evaluate_giveaway_eligibility(completed_count: int, target_km: float, actual_km: float) -> bool:
+    """True si l'utilisateur a mérité un pneu offert plutôt qu'une réduction.
+
+    Fonction pure — aucune dépendance DB. `completed_count` exclut le défi en
+    cours (calculé avant le passage à "completed"). `actual_km` est le
+    kilométrage réellement parcouru sur les sorties datées entre le début et
+    la fin du défi en cours.
+    """
+    if completed_count < GIVEAWAY_TIER_THRESHOLD:
+        return False
+    if target_km <= 0:
+        return False
+    return actual_km >= target_km * GIVEAWAY_OVERACHIEVE_FACTOR

@@ -276,6 +276,19 @@ export function SettingsScreen() {
 				<SectionHeader label="Intégrations" />
 				<StravaSection onNavigate={(screen) => router.push(`/${screen}`)} />
 
+				{/* Espace revendeur (B2B) — page interne, sans auth dédiée */}
+				<SectionHeader label="Réseau Michelin" />
+				<div className="glass-panel mx-5 mb-4 overflow-hidden rounded-2xl">
+					<button onClick={() => router.push('/retailer')} className="w-full text-left">
+						<SettingRow
+							icon={<Users size={15} color={COLORS.gray50} />}
+							label="Espace revendeur"
+							description="Prévision de la demande par zone (démonstration)"
+							right={<ChevronRight size={14} color={COLORS.gray40} />}
+						/>
+					</button>
+				</div>
+
 				{/* À propos */}
 				<SectionHeader label="À propos" />
 				<div className="glass-panel mx-5 mb-4 overflow-hidden rounded-2xl">
