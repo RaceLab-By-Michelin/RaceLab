@@ -58,6 +58,18 @@ def test_patch_me_updates_allowed_fields_only(client, db_session):
     assert body["email"] == "patchme@example.com"
 
 
+def test_patch_me_updates_goal_km(client, db_session):
+    user = make_user(db_session, email="goal@example.com")
+    headers = auth_header_for(db_session, user)
+
+    resp = client.get("/users/me", headers=headers)
+    assert resp.json()["goal_km"] is None
+
+    resp = client.patch("/users/me", json={"goal_km": 500}, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["goal_km"] == 500
+
+
 # ─── /users/me/bike ─────────────────────────────────────────────────────
 
 def test_get_bike(client, db_session):

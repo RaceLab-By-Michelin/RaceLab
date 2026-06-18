@@ -30,6 +30,7 @@ def _user_to_out(user: models.User) -> schemas.UserOut:
         avatar_url=user.avatar_url,
         weight_kg=user.weight_kg,
         height_cm=user.height_cm,
+        goal_km=user.goal_km,
     )
 
 
